@@ -1,0 +1,274 @@
+---
+title: "Cleveland Indians Baseball Operations Assignment"
+date: "December 16, 2018"
+output: html_document
+---
+
+
+
+## Data Description:
+
+$~$
+$~$
+
+The dataset Data Sample.csv represents pitch by pitch baseball game details for a game between Team 1 and Team 2. There are 292 rows which represent pitches in the ball game. The columns of the dataset include pitch number, plate appearance of inning, pitch number of plate appearance, batter, pitcher, result of pitch, result of plays, pitch type, pitch location, etc. My main objective for this analysis is to understand the game flow and how the game was played using the dataset without needing to watch the game. First, I wanted to create a box score to analyze both teams and dive into individual players. For players, I compared the starting pitchers and bullpen as well as hitters for both teams. 
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+
+# Import libraries
+library(sqldf)
+library(ggplot2)
+library(pastecs)
+library(knitr)
+
+# Change working directory to folder with the concessions_adjusted.csv file and read in file, 
+# storing dataframe as SF_49ers
+setwd('C:/Users/ruslan.davtian/Downloads')
+
+# Read in data
+game_data = read.csv('Data Sample.csv', header = T, stringsAsFactors=FALSE, na.strings = 'NULL')
+names(game_data)[12] = 'Top_Bottom'
+#head(game_data)
+
+# Look at the structure of the data and the first 40 rows
+#str(SF_49ers)
+#head(SF_49ers, 40)
+
+
+Team1 = game_data[game_data$PitcherTeam == 'Team 1',]
+Team2 = game_data[game_data$PitcherTeam == 'Team 2',]
+
+topKzone = 3.5; botKzone = 1.6; inKzone = -.95; outKzone = 0.95
+
+kZone = data.frame(x = c(inKzone, inKzone, outKzone, outKzone, inKzone), 
+                   y = c(botKzone, topKzone, topKzone, botKzone, botKzone))
+```
+
+$~$
+
+Below, is a new table aggreated using the official data set from Data Sample.csv file. For each team and each pitcher, I calculated the total pitches thrown, total innings thrown (IP), total runs given up (not ERA due to possible unearned runs), total strikeouts (K), total walks (BB), number of ground balls (GB), number of line drives (LD), and number of fly balls (FB). From this table, both starting pitchers had good games but the starting pitcher for Team 2 pitched slightly better as the pitcher went 6.1 innings pitched with 9 strikeouts, 1 walk, and only 2 runs given up on 101 pitches. For team 1, their starter went 5.1 innings with only 4 strikeouts while giving up 3 runs on 81 pitches. Also, the starter for team 2 gave up almost twice less line drives (6) compared to the starter for team 1 (11). For team 2, the starter and bullpen had better pitching performances than the pitchers from team 1. I need this table below to create a box score with starting pitchers information.   
+
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+pitchers = sqldf('SELECT PitcherTeam, Pitcher, COUNT(AutoPitchType) AS Total_Pitches,
+                  COUNT(DISTINCT Inning) - ((CAST(MAX(Outs) / 3.0 AS FLOAT))) AS IP, SUM(RunsScored) AS                   Runs_Given_Up,
+                  SUM(CASE WHEN KorBB = "Strikeout" THEN 1 ELSE 0 END) AS K,
+                  SUM(CASE WHEN KorBB = "Walk" THEN 1 ELSE 0 END) AS BB,
+                  SUM(CASE WHEN HitType = "GroundBall" THEN 1 ELSE 0 END) AS GB,
+                  SUM(CASE WHEN HitType = "LineDrive" THEN 1 ELSE 0 END) AS LD,
+                  SUM(CASE WHEN HitType = "FlyBall" THEN 1 ELSE 0 END) AS FB
+                  FROM game_data GROUP BY PitcherTeam, Pitcher ORDER BY Pitcher, PitcherTeam')
+#pitchers
+kable(pitchers)
+
+```
+
+$~$
+
+Below are two tables that summarize the ball game and pitchers for both teams. The first table is the official box score which summarizes the game. Team 2 beat Team 1 5-3 and team 2 had better offensive numbers across the board from hits to on-base percentage to slugging percentage. The starting pitcher information is included with the box score as well. The starter for team 2 pitched a quality start while the starter for team 1 pitched a good game but not a quality start. Let's take a quick look at the overall performances of each bullpen
+
+From the second table, it is clear that the bullpen for team 1 struggled mor and had to work longer than the bullpen for team 2 since team 1's starter only lasted 5.1 innings. The bullpen for team 1 threw 76 pitches total while allowing 2 runs and 4 hits. However, they did strikeout 4 batters which has some influence with the large pitch count. For team 2, the starter pitched well and the bullpen got quick outs while only alowing one hit (Solo HomeRun). From these tables, team 2 played a better game compared to team 1 with better offensive and pitching numbers and it shows in the final score.   
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+# Summarize game flow
+inning_by_inning = sqldf('SELECT MIN(game_data.Pitcher) AS Pitcher, pitchers.PitcherTeam, game_data.BatterTeam, 
+                          game_data.Inning, game_data.Top_Bottom, game_data.Outs, COUNT(PitchNo) AS Num_Pitches, 
+                          SUM(RunsScored) AS Runs, COUNT(DISTINCT PAofInning) AS PA,
+                          SUM(CASE WHEN PlayResult IN("Single","Double","Triple","HomeRun")
+                          THEN 1 ELSE 0 END) AS Hits,
+                          SUM(CASE WHEN PlayResult = "Single" THEN 1
+                               WHEN PlayResult = "Double" THEN 2
+                               WHEN PlayResult = "Triple" THEN 3
+                               WHEN PlayResult = "HomeRun" THEN 4 
+                               ELSE 0 
+                          END) AS TB,
+                          SUM(CASE WHEN PlayResult IN("Single","Double","Triple","Homerun")
+                              OR KorBB = "Walk" THEN 1 ELSE 0 END) AS On_Base, 
+                          pitchers.IP, pitchers.Runs_Given_Up,
+                          SUM(CASE WHEN KorBB = "Strikeout" THEN 1 ELSE 0 END) AS K
+                          FROM pitchers INNER JOIN game_data ON game_data.Pitcher = pitchers.Pitcher 
+                          AND game_data.PitcherTeam = pitchers.PitcherTeam
+                          GROUP BY pitchers.PitcherTeam, game_data.BatterTeam, game_data.Inning, 
+                          game_data.Top_Bottom, game_data.Outs
+                          ORDER BY game_data.Inning, game_data.Top_Bottom DESC')
+
+box = sqldf('SELECT BatterTeam AS Team, SUM(Runs) AS Score, SUM(Hits) AS Hits,
+      ROUND(CAST(SUM(Hits) AS FLOAT) / SUM(PA),3) AS AVG, 
+      ROUND(CAST(SUM(On_Base) AS FLOAT) / SUM(PA), 3) AS OBP, 
+      ROUND(CAST(SUM(TB) AS FLOAT) / SUM(PA),3) AS SLG,
+
+      (ROUND(CAST(SUM(On_Base) AS FLOAT) / SUM(PA), 3) + 
+      ROUND(CAST(SUM(TB) AS FLOAT) / SUM(PA),3)) AS OPS,
+      MIN(inning_by_inning.Pitcher) AS Starting_Pitchers, 
+      ROUND(pitchers.IP,2) AS IP, 
+      pitchers.Runs_Given_Up, pitchers.K, pitchers.BB
+      FROM inning_by_inning INNER JOIN pitchers ON inning_by_inning.PitcherTeam = pitchers.PitcherTeam
+      AND inning_by_inning.Pitcher = pitchers.Pitcher
+      GROUP BY inning_by_inning.PitcherTeam, BatterTeam ORDER BY Team')
+box$IP = rev(box$IP)
+box$Runs_Given_Up = rev(box$Runs_Given_Up)
+box$K = rev(box$K)
+box$BB = rev(box$BB)
+kable(box)
+
+bullpen = sqldf("SELECT PitcherTeam AS Team, COUNT(DISTINCT PitchNo) AS Pitches_Thrown, 
+                SUM(RunsScored) AS Runs_Allowed, 
+                SUM(CASE WHEN PlayResult IN('Single','Double','Triple','HomeRun') THEN 1 ELSE 0 END) AS Hits,
+                SUM(CASE WHEN KorBB = 'Strikeout' THEN 1 ELSE 0 END) AS K
+                FROM game_data WHERE Pitcher <> 'Pitcher 1'
+                GROUP BY PitcherTeam
+                ORDER BY PitcherTeam, Pitcher ASC")
+kable(bullpen)
+```
+
+$~$
+After understanding the overall pitching and offensive number of both teams, let's look deeper into each pitchers pitch distribution. I created a table that displays for each pitcher and each pitch type, the number of pitches, average velocity, average exist speed of the bat, averge distance hit, and average verticle break on pitches. For simplicity purposes, I will focus on the strting pitchers due to more body of work in this game than any bullpen pitcher. Below, are pitch distribution pie charts for both starters. Both starters threw the same pitches (Fastball, ChangeUp, Slider, Curveball) but the starter for team 1 threw fastballs more often the team 2's starter (55.6% vs 40.6%). Also, team 2's starter mixed in ChangeUp's and Curveball's more often than team 1's starter. From the box score, we know that team 2's starter had a better performance than team 1's starter and from the pitch distribution chart, we see that the starter from team 2 had more variety with his pitches than team 1's starter.    
+
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+pitches_by_type = sqldf('SELECT PitcherTeam, Pitcher, AutoPitchType, COUNT(AutoPitchType) 
+                               AS Num_Pitches, AVG(RelSpeed) AS AVG_Velocity,
+                               AVG(ExitSpeed) AS AVG_ExitSpeed, AVG(Distance) AS AVG_Distance_Hit,
+                               AVG(VertBreak) AS AVG_Vert_Break
+                               FROM game_data GROUP BY PitcherTeam, Pitcher, AutoPitchType')
+
+pitch_distr = sqldf('SELECT b.PitcherTeam, a.Pitcher, a.AutoPitchType, a.Num_Pitches, b.Total_Pitches, 
+       ROUND((CAST(a.Num_Pitches AS FLOAT) / b.Total_Pitches),3) * 100 AS Pitch_Distribution
+       FROM pitches_by_type a INNER JOIN pitchers b 
+       ON a.Pitcher = b.Pitcher AND a.PitcherTeam = b.PitcherTeam')
+
+pie(pitch_distr$Pitch_Distribution[pitch_distr$Pitcher == "Pitcher 1" & pitch_distr$PitcherTeam == "Team 1"], 
+    labels = paste(pitch_distr$AutoPitchType," ",
+                   pitch_distr$Pitch_Distribution[pitch_distr$Pitcher == "Pitcher 1"],
+                   " %",sep=""), col = as.factor(pitch_distr$AutoPitchType), 
+    main = paste('In-Game Pitch Distribution for Pitcher 1 on Team 1'))
+
+
+pie(pitch_distr$Pitch_Distribution[pitch_distr$Pitcher == "Pitcher 1" & pitch_distr$PitcherTeam == "Team 2"], 
+    labels = paste(pitch_distr$AutoPitchType," ",
+                   pitch_distr$Pitch_Distribution[pitch_distr$Pitcher == "Pitcher 1" & pitch_distr$PitcherTeam == "Team 2"],
+                   " %",sep=""), col = as.factor(pitch_distr$AutoPitchType), 
+    main = paste('In-Game Pitch Distribution for Pitcher 1 on Team 2'))
+```
+
+$~$
+The pitches for both starting pitchers are plotted below. The box represents the strikezone as defined by fan graphs in the following web address (https://www.fangraphs.com/tht/strike-zone-fact-vs-fiction/). From the plotted pitche, we see that Team 1's starter pitched more consistenly inside or near the strikezone than Team 2's starter. However, leaving more percentage of pitches in the strikezone allows for hitters to connect on pitches more often which is what happened. For team 2, their starter threw more off-speed pitches (ChangeUp, Curveball) below the strikezone which can be associated with the 9 strikeouts that team 2's starter threw. 
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+data1 = game_data[game_data$Pitcher == 'Pitcher 1' & game_data$PitcherTeam == 'Team 1',]
+data2 = game_data[game_data$Pitcher == 'Pitcher 1' & game_data$PitcherTeam == 'Team 2',]
+
+ggplot() +
+  geom_point(data=data1, aes(x=PlateLocSide, y=PlateLocHeight, 
+                             col = AutoPitchType)) + ggtitle("Starting Pitcher for Team 1 Pitches Thrown") +
+  coord_equal() + geom_path(aes(x, y), data = kZone) + xlim(-2, 2) + ylim(0, 4.5)
+
+
+
+ggplot() +
+  geom_point(data=data2, aes(x=PlateLocSide, y=PlateLocHeight, 
+                             col = AutoPitchType)) + ggtitle("Starting Pitcher for Team 2 Pitches Thrown") +
+  coord_equal() + geom_path(aes(x, y), data = kZone) + xlim(-2, 2) + ylim(0, 4.5)
+
+```
+
+
+$~$
+
+Since team 2's starter had 9 strikeouts, I wanted to look at his closing pitches on those 9 strikeouts. Of his 9 strikeouts, 7 were swinging strikeouts with 4 of them outside the strikezone.  
+
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+data1 = Team2[Team2$Pitcher == 'Pitcher 1' & Team2$KorBB == "Strikeout",]
+
+ggplot() +
+  geom_point(data=data1, aes(x=PlateLocSide, y=PlateLocHeight, 
+                             col = AutoPitchType, shape = PitchCall)) + ggtitle("Team 2's Starting Pitcher Strikeout Pitch") + coord_equal() + geom_path(aes(x, y), data = kZone) + xlim(-2, 2) + ylim(0, 4)
+
+```
+
+$~$
+Instead of only looking at pitches that resulted in strikeouts, we can also view the locations of pitches by both teams that resulted in hits. Below, are two plots for each team where the pitches that ended as hits are plotted with its play result (single, double, or homerun) and pitch type. The plots are divided by left handed hitters and right handed hitters. Team 1's pitchers gave up more hits and the pitches were mostly middle and low which is surprising because I would expect more balls up in the zone. Team 2 pitchers perfomed better than those from team 1 but team 2 did leave some pitches up in the zone for mistakes. Both teams had one homerun that were on fastballs in the middle or middle-in of the zone. There are more interesting analysis that can be done with regard to pitchers but I would also like to touch on the hitters in this game.      
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+data1 = Team1[(Team1$PlayResult == "HomeRun"
+                                             |Team1$PlayResult == "Double"
+                                            | Team1$PlayResult == "Single"),]
+
+data2 = Team2[(Team2$PlayResult == "HomeRun"
+                                              |Team2$PlayResult == "Double"
+                                              | Team2$PlayResult == "Single"),]
+
+ggplot() +
+    geom_point(data=data1, aes(x=PlateLocSide, y=PlateLocHeight, 
+                               col = AutoPitchType, shape = PlayResult)) +
+    facet_grid(. ~ BatterSide) + coord_equal() + geom_path(aes(x, y), data = kZone) + ggtitle("Team 1's Pitch Type and Location of Hits Given Up")
+
+
+ggplot() +
+    geom_point(data=data2, aes(x=PlateLocSide, y=PlateLocHeight, 
+                               col = AutoPitchType, shape = PlayResult)) +
+    facet_grid(. ~ BatterSide) + coord_equal() + geom_path(aes(x, y), data = kZone) + ggtitle("Team 2's Pitch Type and Location of Hits Given Up")
+
+
+```
+
+
+$~$
+
+A table is shown below that shows every batter for each team ordered by number of hits. The first few rows represent players that produced offensively in terms of hits. For team 2, batter 3 went 3 for 4 with a single and 2 doubles but no runs batted in. Also, the first 3 hitters for team 2 combined for 7 hits (3 singles, 4 doubles) and 3 rbi's. The front of the lineup produced and set the table for the rest of the lineup. For team 1, there best offensive producers in this game were batters 2 and 7 in the lineup. They had a combined 4 hits and 1 rbi. Both teams had solo homeruns hit by team 1, batter 10 (pinch-hitter most likely) and team 2, batter 9. Also, looking at average exit speed, batter 9 on team 2 had the largest average exit speed and went 2 for 2 with a single and homerun. Interesting that the bottom of the lineup for team 1 produced while the top of the lineup for team 2 produced.  
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+hitters = sqldf("SELECT *, ROUND(CAST(Hits AS FLOAT) / PA, 3) AS AVG  
+       FROM (SELECT BatterTeam, Batter, COUNT(DISTINCT PAofInning) AS PA,
+       SUM(CASE WHEN PlayResult IN('Single','Double','Triple','HomeRun')
+                          THEN 1 ELSE 0 END) AS Hits,
+       SUM(CASE WHEN PlayResult = 'Single' THEN 1 ELSE 0 END) AS Singles,
+       SUM(CASE WHEN PlayResult = 'Double' THEN 1 ELSE 0 END) AS Doubles,
+       SUM(CASE WHEN PlayResult = 'HomeRun' THEN 1 ELSE 0 END) AS HomeRun,
+       SUM(CASE WHEN RunsScored > 0 THEN RunsScored ELSE 0 END) AS RBI,
+       SUM(CASE WHEN KorBB == 'Strikeout' THEN 1 ELSE 0 END) AS K,
+       SUM(CASE WHEN KorBB == 'Walk' THEN 1 ELSE 0 END) AS BB,
+       AVG(ExitSpeed) AS AVG_ExitSpeed
+       FROM game_data GROUP BY BatterTeam, Batter 
+       ORDER BY Hits DESC)")
+
+kable(hitters)
+```
+
+$~$
+Lastly, I chose two statisitics such as average spin rate and average spin axis to show differences between the two starting pitchers on how they release the ball per pitch type. For average spin rate, there doesn't seem to be much difference between the two starting pitchers but for average spin axis, there is a clear difference between the two pitchers on the the ball is rotating on their pitches, especially curveballs. 
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+starters = sqldf("SELECT  PitcherTeam, MIN(Pitcher) AS Starting_Pitcher, AutoPitchType AS PitchType, 
+       AVG(ExitSpeed) AS AVG_ExitSpeed, AVG(Distance) AS AVG_Distance, AVG(Angle) AS AVG_Angle, 
+       AVG(VertBreak) AS AVG_VertBreak, AVG(HorzBreak) AS AVG_HorzBreak, AVG(SpinAxis) AS AVG_SpinAxis,
+       AVG(SpinRate) AS AVG_SpinRate
+       FROM game_data WHERE PitchType <> 'Undefined' AND Pitcher = 'Pitcher 1' GROUP BY PitcherTeam, PitchType
+       ORDER BY PitcherTeam, AVG_Distance DESC")
+ggplot(starters, aes(fill=PitcherTeam, y=AVG_SpinRate, x=PitchType)) +
+  geom_bar( stat="identity", position="dodge") + ggtitle('Average Spin Rate for Both Starters By PitchType')
+
+ggplot(starters, aes(fill=PitcherTeam, y=AVG_SpinAxis, x=PitchType)) +
+  geom_bar( stat="identity", position="dodge") + ggtitle('Average Spin Axis for Both Starters By PitchType')
+```
+
+$~$
+Further analysis can be made at plotting the pitchers pitches when ahead of the count to see every pitcher's pitch tendency when ahead of the count. Also, further analysis can be done with comparing the starting pitchers on average velocity, average exit speed, average distance hit, and average verticlal, horizontal breaks on pitches to compare there pitching styles and strengths for this game. Lastly, further analysis can be made for hitters with the given information in the data. However, due to time, I had to pick and choose which analysis I would do. Overall, I believe the analysis done can give someone a good snapshot of the baseball game without having to watch it.  
