@@ -1,6 +1,6 @@
 ---
-title: "Minnesota Twins R&D Intern Questionnaire"
-author: "Twins Candidate"
+title: "Predict Hit vs No Hit Using Statcast Data"
+author: "Ruslan Davtian"
 date: "October 27, 2019"
 output: html_document
 ---
