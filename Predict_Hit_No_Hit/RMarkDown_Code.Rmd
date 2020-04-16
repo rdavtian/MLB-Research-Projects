@@ -1,0 +1,441 @@
+---
+title: "Minnesota Twins R&D Intern Questionnaire"
+author: "Twins Candidate"
+date: "October 27, 2019"
+output: html_document
+---
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+library('stringr')
+library('dplyr')
+library('ggplot2')
+library('ggpubr')
+library('rattle')
+library('sqldf')
+library('caret')
+library('usdm')
+#library('plyr')
+library('rpart')
+library('rpart.plot')
+library('class')
+require('neuralnet')
+require('nnet')
+library('keras')
+library('knitr')
+require('gridExtra')
+
+setwd('C:/Users/rusla/OneDrive/MLBAnalyticsJobs/Teams/Twins')
+```
+
+### Data Description:
+
+The Trackman pitch level data (Pitch_Data_v3.csv) represent pitch-by-pitch and at bat data for many of the pitchers and batters in MLB for the 2018 season across 30 different parks. The data provide information such as pitch speed, pitch location, pitch break, pitch release, pitch type, exit speed, and launch angle. The data set contains a total of 115,137 pitches and 57 columns. The goal of this analysis is to build a model on some subset of the data (training set) to predict the estimated probability of each pitch resulting in a hit or out and use that model to make predictions for some testing set.  
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+plot_bar_charts_by_pitch <- function(data, column, title) {
+  
+  column <- rlang::sym(column)
+  ggplot(data, aes(fill=inPlayOut, x=reorder(PitchType, !!column), y=!!column)) +
+    geom_bar(stat="identity", position="dodge") + 
+    ggtitle(paste('Average', title ,'By PitchType')) + 
+    geom_text(aes(label=!!column), vjust=1, size = 4) +
+    #geom_text(aes(label=!!column)) +
+    xlab('Pitch Type') + ylab(title) 
+}
+
+plot_bar_charts <- function(data, column, title) {
+  
+  column <- rlang::sym(column)
+  ggplot(data, aes(fill=inPlayOut, x=reorder(inPlayOut, !!column), y=!!column)) +
+    geom_bar(stat="identity", position="dodge") + 
+    ggtitle(paste('Average', title ,'By inPlayOut')) + 
+    geom_text(aes(label=!!column), vjust=0, size = 6) +
+    xlab('inPlayOut') + ylab(title)
+}
+```
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+pitch <- read.csv('C:/Users/rusla/OneDrive/MLBAnalyticsJobs/Teams/Twins/Pitch_Data_v3.csv', header= TRUE)
+pitch_type <- as.data.frame(model.matrix(~0+pitch$PitchType))
+colnames(pitch_type) = c('CB','CH','CT','FB','KN','SI','SL','SP')
+pitch <- cbind(pitch, pitch_type)
+pitch$inPlayOut <- as.factor(pitch$inPlayOut)
+
+kable(head(pitch[, 1:10]), digits = 2, row.names = F)
+```
+
+Above, are the first six rows and 10 columns of the Trackman data set. My first step is to understand the variables and choose ones that can be predictive of a pitch resulting in a hit or out. For simplicity, I did not look into many of the game characteristic variables such as GameId, BallparkId, GameEventId, Gametime, BatterId, PitcherId, etc. I focused on the more intuitive variables which would provide me most of the variation explained in the response.  Therefore, the variables of interest that I have identified as possible useful predictor variables are...
+
+batterTimesFaced, cumulativeBattersFaced, PlateAppearance, HorzBreak, VertBreak, StartSpeed, RelHeight, RelSide, Extension, VertRelAngle, HorzRelAngle, SpinRate, SpinAxis, ExitSpeed, Angle, Bearing, and Direction.
+
+### Missing Values and Data Manipulation: 
+
+After investigating the data set, 1,676 rows are missing spin rate. The values seem to be missing at random since these missing rows are from all 30 different ballparks and 342 different pitchers. Therefore, I felt it appropriate to filter out those rows. After removing those rows, I am left with just 170 missing values for the BatterPositionId (1-9). I decided to keep those missing values as I will not be using that column anyway. Lastly, I also created separate indicator variables for each pitch type to be able to use a specific pitch type as a variable into the model. 
+
+### Analysis Approach:
+
+My approach is to build a few machine learning classification algorithms to compare performance and choose the model with the highest accuracy of cross validated predictions to predict the pitch type in the test set. I chose to compare five algorithms (logistic regression, decision tree, random forest, k-th nearest neighbor and neural network) using 5-fold cross validation on a training set for each one for consistency between the algorithms. Also, I compared each one by computing overall accuracy and kappa statistics for each classifier on the training and testing sets. I will select the model that best maximizes test accuracy in predictions.  
+
+
+### Balance of Classes:
+
+To understand the proportion of pitches resulting in hits or outs, I created a table below displaying the proportions. About 65% of the pitches resulted in outs and the other 35% of pitches resulted in hits. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+tab = data.frame(round(prop.table(table(pitch$inPlayOut)),3))
+tab = t(tab)
+tab = t(as.data.frame(as.numeric(tab[2,])))
+colnames(tab) = c("Hit", "Out")
+kable(tab, row.names = F)
+```
+
+
+### Data Visualizations:
+
+Now that I have my official list of variables, I would like to plot their averages by result (hit/out) as well as result and pitch type. Below, is a data set showing the averages of the remaining variables for each result. Most of the variables do not show any significant mean differences between hits and outs except for ExitSpeed, Angle, Bearing, and Direction.   
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=14, fig.height=7}
+
+avgs <- pitch %>% 
+  group_by(inPlayOut) %>%
+  summarise_at(vars(batterTimesFaced, cumulativeBattersFaced, PlateAppearance, HorzBreak, VertBreak, StartSpeed, RelHeight, RelSide, Extension, VertRelAngle, HorzRelAngle, SpinRate, SpinAxis, ExitSpeed, Angle, Bearing, Direction), mean, na.rm = TRUE) %>%
+  mutate_if(is.numeric, round, 1)
+kable(avgs)
+```
+
+It is also useful to look into variables averaged out by pitch type and result. The averages can be found in the data set below. Similarly, the only significant differences are from ExitSpeed, Angle, Bearing, and Direction. However, pitch types may still be interesting to throw into a model as one of the pitches may lead to more outs or hits than others. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=14, fig.height=7}
+
+avgs_by_pitch <- pitch %>% 
+  group_by(PitchType, inPlayOut) %>%
+  summarise_at(vars(batterTimesFaced, cumulativeBattersFaced, PlateAppearance, HorzBreak, VertBreak, StartSpeed, RelHeight, RelSide, Extension, VertRelAngle, HorzRelAngle, SpinRate, SpinAxis, ExitSpeed, 
+Angle, Bearing, Direction), mean, na.rm = TRUE) %>% 
+  mutate_if(is.numeric, round, 1)
+kable(avgs_by_pitch)
+
+```
+
+
+The following plots below compare ExitSpeed, Angle, Bearing, and Direction across result of pitch and across both result of pitch and pitch type.
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=14, fig.height=7}
+
+plot1 <- plot_bar_charts(avgs, 'ExitSpeed', 'ExitSpeed')
+plot2 <- plot_bar_charts(avgs, 'Angle', 'Angle')
+grid.arrange(plot1, plot2, nrow=1, ncol=2)
+
+```
+
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=14, fig.height=7}
+
+plot1 <- plot_bar_charts(avgs, 'Bearing', 'Bearing')
+plot2 <- plot_bar_charts(avgs, 'Direction', 'Direction')
+grid.arrange(plot1, plot2, nrow=1, ncol=2)
+
+```
+
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=14, fig.height=7}
+
+plot1 <- plot_bar_charts_by_pitch(avgs_by_pitch, 'ExitSpeed', 'ExitSpeed')
+plot2 <- plot_bar_charts_by_pitch(avgs_by_pitch, 'Angle', 'Angle')
+grid.arrange(plot1, plot2, nrow=1, ncol=2)
+
+```
+
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=14, fig.height=7}
+
+plot1 <- plot_bar_charts_by_pitch(avgs_by_pitch, 'Bearing', 'Bearing')
+plot2 <- plot_bar_charts_by_pitch(avgs_by_pitch, 'Direction', 'Direction')
+grid.arrange(plot1, plot2, nrow=1, ncol=2)
+
+```
+
+### Multicollinearity Check:
+
+Before I perform any modeling, I want to check if any of the variables selected as candidates for the models explain similar variation in the pitch types. Therefore, I checked Variance Inflation Factors (VIFs) among the variables. Any two variables over 9 reveal severe multicollinearity among them and one of them should be removed. The VIFs are located below.
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Checking for multicollinearity by using variance inflation factors
+values = vif(pitch[, c('ExitSpeed','Angle','Direction','Bearing')])
+values = round(values$VIF,3)
+vif = data.frame(matrix(nrow = 1, ncol = 4))
+colnames(vif) = c('ExitSpeed','Angle','Direction','Bearing')
+vif = rbind(vif, values)
+vif = vif[2,]
+kable(vif, digits = 2, row.names = F, align = c('l','l'))
+```
+
+
+There does not seem to be any issue with severe multicollinearity. However, Bearing and Direction seem to be somewhat colinear. The correlation between these two variables is 0.926 which means I would need to select only one of them, but not both for modeling.  
+
+### Pre-Processing and Machine Learning:
+
+First, I split the overall Trackman in the data set into a 70/30 train, test split. For consistent and improved results, I standardized all predictor variables in the training and testing sets and used 5-fold cross validation across each algorithm. I used cross validated accuracy and kappa performance metrics to rank the algorithms. 
+
+### Logistic Regression:
+
+I decided to build a logistic regression model first to use as a base model to compare against. The output below is from the final logistic model chosen. My first model also incorporated pitch type and pitcher throwing side and only the sinker pitch type was statistically significant so I chose to use sinker as an indicator variable in the final model. Lastly, I chose to use angle instead of bearing as they are both colinear with each other. The final model incorporates exit speed, angle, direction, sinker, and batter hitting side.  
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+trControl = trainControl(method  = "cv", number = 5)
+preProcess = preProcess(pitch[, c('ExitSpeed','Angle','Direction', 'Bearing','CB','CH','CT','FB','SI','SL','SP','BatterHitting','PitcherThrowing','PitchType')], method = c("center","scale"))
+new_pitch = predict(preProcess, pitch[, c('ExitSpeed','Angle','Direction', 'Bearing','CB','CH','CT','FB','SI','SL','SP','BatterHitting','PitcherThrowing','PitchType')])
+new_pitch$PitchType <- pitch$PitchType
+new_pitch$inPlayOut <- pitch$inPlayOut
+
+sample <- sample.int(nrow(new_pitch), floor(.7*nrow(new_pitch)), replace = FALSE)
+train <- new_pitch[sample, ]
+test  <- new_pitch[-sample, ]
+
+```
+
+Below, are the performance metrics for the test set. I looked at accuracy by result (hit/out) as well as overall accuracy and kappa metrics that will be used to compare against other algorithms. As the base model, the logistic regression model's overall accuracy on the test set is about 68%. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+log <- glm(as.factor(inPlayOut) ~ ExitSpeed + Angle + Direction + SI + BatterHitting, 
+           data = train, family = 'binomial')
+log_summary <- summary(log)[12]
+colnames(log_summary$coefficients) <- c('Estimate','Std. Error','z value', 'p value')
+kable(log_summary)
+```
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+test_preds_log <- predict(log, newdata = test, type = "response")
+test_preds_log <- as.factor(ifelse(test_preds_log < 0.5, 0, 1))
+
+con_log = confusionMatrix(test_preds_log, as.factor(test[, 'inPlayOut']))
+acc_by_type = data.frame(round(diag(con_log$table) / rowSums(con_log$table),3))
+colnames(acc_by_type) = 'Accuracy'
+kable(t(acc_by_type))
+
+overall_accuracy <- data.frame(con_log$overall[1:2])
+colnames(overall_accuracy) <- ('Overall Test Accuracy')
+kable(overall_accuracy, digits = 3)
+```
+
+### Decision Tree:
+
+I decided to build a decision tree first to look at the first few splits in order to determine the most important variables. I fixed the complexity parameter to not over fit or produce too long of a tree and chose 10 as minimum number of observations that must exist in a node in order for a split to be attempted. A plot of the decision tree can be found below.
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+set.seed(1)
+form = "as.factor(inPlayOut) ~ ExitSpeed + Angle + Direction + SI + BatterHitting"
+dt = rpart(form, train, method = "class", control = rpart.control(xval = 5, cp = 0.01),
+           minsplit = 10, maxdepth = 8)
+
+# Decision Tree Plot Yes
+rpart.plot(dt)
+```
+
+
+At each split, the tree shows which variables the split was made but the values shown do not make sense because they are standardized. The final tree has depth 4 with 9 terminal nodes. The variables used in this tree as nodes are only exit speed and angle. It is important to note that a deeper tree many use all of the variables but there is a risk of over-fitting the training data set and performing worse on the testing set.  
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Variable Importance
+barchart(dt$variable.importance, main = "Decision Tree Variable Importance",
+         xlab = "Scaled Level of Variable Importance", ylab = "Variables")
+
+```
+
+
+Above, is a bar chart showing the scaled levels of variable importance. The top 4 most important variables in order of significance for the decision tree is angle, exit speed, direction, and sinker.
+
+Below, is the accuracy by result as well as overall test accuracy and kappa values. The overall accuracy for the decision tree is significantly higher than that of the logistic regression at about 76%. 
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Confusion Table, Yes
+test_preds_dt = predict(dt, newdata = test, type = "class")
+con_dt = confusionMatrix(test_preds_dt, as.factor(test[, 'inPlayOut']))
+acc_by_type = data.frame(round(diag(con_dt$table) / rowSums(con_dt$table),3))
+colnames(acc_by_type) = 'Accuracy'
+kable(t(acc_by_type))
+```
+
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Overall Accuracy and Kappa
+overall_accuracy <- data.frame(con_dt$overall[1:2])
+colnames(overall_accuracy) <- ('Overall Test Accuracy')
+kable(overall_accuracy, digits = 3)
+
+```
+
+### Random Forest:
+
+Decision Trees might perform well on trained data but there could be possible issues with generalizing to new, unseen data. Therefore, I will try random forest as the next modeling technique. They are more difficult to interpret than decision trees but usually have higher predictive power. I used the same variables as the previous model and I chose the number of trees parameter to be 250. Also, I determined the number of variables (1 to 4) to be randomly sampled as candidates at each split through cross validation. A plot of this can be found below. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Random Forest
+#set.seed(2)
+rf <- train(as.factor(inPlayOut) ~ ExitSpeed + Angle + Direction + SI + BatterHitting, ntree = 250, method = 'rf', metric = 'Accuracy', trControl  = trControl, data = train, importance = T, tuneGrid = expand.grid(.mtry = c(1:3)))
+# Plot accuracy, YES
+plot(rf, main = 'Average Accuracy Across 5-Fold CV', xlab = 'Number of Variables 
+Randomly Sampled as Candidates at Each Split.', ylab = 'Average Accuracy')
+```
+
+
+At each of the 250 trees, a random sample of variables to be elected as candidates for each split is important to not allow the same splits to happen over and over for each tree. It is determined that the best number of variables to have for random selection on each split is `r rf$bestTune` from cross validated accuracy.
+
+Below, is the average, scaled variable importance chart for the random forest algorithm. The top 5 most important variables in order of significance is angle, exit speed, direction, batter hitting side, and sinker. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+#importance(rF), YES
+imp = varImp(rf)
+barchart(sort(rowMeans(imp$importance), decreasing = T), main = "Random Forest Variable Importance", xlab = "Average Level of Importance", ylab = "Variables")
+```
+
+The accuracy by result and overall accuracy and kappa values for the random forest algorithm is below. The random forests algorithm performed significantly better than the decision tree with about 82% accuracy. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Confusion Table, Yes
+test_preds_rf = predict(rf, newdata = test, type = "raw")
+test_preds_rf_probs = predict(rf, newdata = test, type = "prob")
+con_rf = confusionMatrix(test_preds_rf, as.factor(test[, 'inPlayOut']))
+acc_by_type = data.frame(round(diag(con_rf$table) / rowSums(con_rf$table),3))
+colnames(acc_by_type) = 'Accuracy'
+kable(t(acc_by_type))
+```
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Overall Accuracy and Kappa of best tuned random forest model, YES
+kable(rf$results[as.numeric(rf$bestTune),2:3], digits = 3, row.names = F, align = 'c')
+```
+
+
+### K-th Nearest Neighbors:
+
+KNN is one of the simplest algorithms as it calculates the Euclidean distances between each of the predictors and a class for the testing observation is determined through the majority class of its k closest neighbors. K is chosen through cross validation that maximizes accuracy and kappa values. A plot of cross validated accuracy versus K is shown below. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+#set.seed(3)
+knn <- train(as.factor(inPlayOut) ~ ExitSpeed + Angle + Direction + SI + BatterHitting, method = "knn", tuneGrid = expand.grid(k = 1:15), trControl  = trControl, metric = "Accuracy", data = train)
+
+# Accuracy plot
+plot(knn, main = 'Average Accuracy Across 5-Fold CV', xlab = 'K', ylab = 'Average Accuracy') 
+```
+
+
+The plot converges quickly after K = 10 but in this case, the K which produced the best overall accuracy and kappa values is `r knn$bestTune[1]`. 
+
+Below, is the accuracy by result and overall accuracy and kappa values for the KNN algorithm. The algorithm performs very similarly to the random forest (82% accuracy) and much better than the decision tree or logistic regression.  
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Predict on training set to make confusion table
+test_preds_knn = predict(knn, train[,-15])
+con_knn = confusionMatrix(train[,15], test_preds_knn)
+
+# Confusion Table, Yes
+acc_by_type = data.frame(round(diag(con_knn$table) / rowSums(con_knn$table),3))
+colnames(acc_by_type) = 'Accuracy'
+kable(t(acc_by_type))
+```
+
+$~$
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Overall Accuracy and Kappa of best tuned random forest model, YES
+kable(knn$results[as.numeric(knn$bestTune),2:3], row.names = F, digits = 3, align = 'c')
+```
+
+
+### Neural Network:
+
+For the last algorithm, I created a multi-hidden layer neural network to classify the result. Neural networks are very difficult to explain or interpret the results but when hyperparameterized correctly, can produce strong predictive results. I chose to have only two hidden layers where the first layer has 64 nodes and the second layer has 32 nodes. Both layers use relu as the activation function and the output layer has 2 units for the 2 result types. Also, the output layer uses the softmax activation function to transform the outputs into probabilities between 0 and 1 for multiclass classification. This process of feeding observations into the input layers and calculating the output layer is called forward propagation. In order to improve the accuracy of the predictions, the back propagation process needs to be optimized to minimize some loss function (categorical cross-entropy). In this process, I chose to use only 30 iterations or epochs with batch sizes of 128 for faster training. Also, I used 0.2 as the validation split during the training. The plot of the accuracy and loss for both training and validation sets throughout the 30 iterations can be found below. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+set.seed(4)
+one_hot = dummyVars(~ inPlayOut, data = train, sep = "_")
+y_one_hot = predict(one_hot, train)
+
+model <- keras::keras_model_sequential() 
+model %>% keras::layer_dense(units = 32, activation = "relu", input_shape = 5) %>%
+  keras::layer_dense(units = 16, activation = "relu") %>%
+  keras::layer_dense(units = ncol(y_one_hot), activation = "softmax")
+
+compile(model, loss = "categorical_crossentropy", optimizer = optimizer_rmsprop(), metrics = "accuracy")
+
+history = fit(model,data.matrix(train[,c('ExitSpeed','Angle','Direction',
+                                                'SI','BatterHitting')]), y_one_hot, epochs = 30, batch_size = 128, validation_split = 0.2)
+plot(history)
+```
+
+
+The neural network converged quickly after the first 10-15 iterations and the accuracy from both training and validation sets seem to be around 80% which is similar to random forest and KNN algorithms. The overall accuracy for the neural network is significantly better than the decision tree and logistic regression model and only slightly worse among random forest and KNN. 
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+eval = model %>% evaluate(data.matrix(train[,c('ExitSpeed','Angle','Direction','SI', 'BatterHitting')]), y_one_hot,verbose = 0)
+eval = data.frame(eval$acc)
+colnames(eval) = 'accuracy'
+kable(eval, align = 'c', digits = 3)
+```
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+test_preds_nn = model %>% keras::predict_classes(data.matrix(test[, c('ExitSpeed', 'Angle', 'Direction', 'SI', 'BatterHitting')]))
+con_nn = confusionMatrix(test[,15], as.factor(test_preds_nn))
+#kable(con_nn$table)
+acc_by_type = data.frame(round(diag(con_nn$table) / rowSums(con_nn$table),3))
+colnames(acc_by_type) = 'Accuracy'
+kable(t(acc_by_type))
+```
+
+### Ranking Algorithms
+
+In order of overall accuracy, the algorithms from highest to smallest are as follows, (knn, random forest, neural network, decision tree, logistic regression). However, the overall accuracies and kappa values from KNN and random forest models are not significantly different from each other. Therefore, I chose to use the random forest model to make predictions on the testing set instead of the KNN model due to easier methods of extracting class probabilities. To make sure the testing predictions make sense, it is important to compare the distribution of results for the predictions against the distribution of actual results from the testing set. 
+
+Below is the distribution of results for the test data. 
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Distribution of pitch types from the training set
+tab = data.frame(round(prop.table(table(test$inPlayOut)),3))
+tab = t(tab)
+tab = t(as.data.frame(as.numeric(tab[2,])))
+colnames(tab) = c("Hit","Out")
+kable(tab, row.names = F)
+```
+
+
+Below is the distribution of results for the predictions made using the random forest model.
+
+```{r,  echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+# Distribution of pitch types from predictions made on testing set using the neural network model.
+
+tab = data.frame(round(prop.table(table(test_preds_rf)),3))
+tab = t(tab)
+tab = t(as.data.frame(as.numeric(tab[2,])))
+colnames(tab) = c("Hit", "Out")
+kable(tab, row.names = F)
+```
+
+Below is the two way table Confusion Matrix comparing the actual testing results (columns) versus the predicted results (rows). 
+
+```{r,  echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+kable(con_rf$table)
+
+```
+
+
+The proportion of results for both sets are very similar so the predictions from the random forest model make sense. Below, the predicted test result probabilities and the actual results are shown for the first 30 rows.   
+
+```{r,  echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+
+predictions <- data.frame(test$inPlayOut, test_preds_rf, test_preds_rf_probs)
+colnames(predictions) <- c('Actual', 'Predicted', 'Hit Probability', 'Out Probability')
+kable(head(predictions, 30), row.names = F)
+```
