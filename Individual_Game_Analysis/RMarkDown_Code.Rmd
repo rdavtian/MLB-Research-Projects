@@ -24,18 +24,12 @@ library(ggplot2)
 library(pastecs)
 library(knitr)
 
-# Change working directory to folder with the concessions_adjusted.csv file and read in file, 
-# storing dataframe as SF_49ers
 setwd('C:/Users/ruslan.davtian/Downloads')
 
 # Read in data
 game_data = read.csv('Data Sample.csv', header = T, stringsAsFactors=FALSE, na.strings = 'NULL')
 names(game_data)[12] = 'Top_Bottom'
 #head(game_data)
-
-# Look at the structure of the data and the first 40 rows
-#str(SF_49ers)
-#head(SF_49ers, 40)
 
 
 Team1 = game_data[game_data$PitcherTeam == 'Team 1',]
