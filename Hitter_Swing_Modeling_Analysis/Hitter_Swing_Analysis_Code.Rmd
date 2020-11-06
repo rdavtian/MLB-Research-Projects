@@ -324,7 +324,6 @@ run_xgboost <- function(vars, tunelength, train2, test2)
   test$is_swing <- xgboost_prob
   return(list(xgboost, test, test2))
 }
-setwd('C:/Users/rusla/OneDrive/MLBAnalyticsJobs/Teams/Mariners_2020')
 ```
 
 ### Data Description:
@@ -418,7 +417,7 @@ Let's look more closely at how swing percentage changes with different counts se
 Regardless of pitch type, hitters are very reluctant to swing at a 3-0 count which is expected. Also, hitters are typically more patient on the first pitch of the at bat as well as when they are ahead of the count with no strikes. Hitters are most aggressive anytime they have two strikes on them. Clearly, there is an effect of count on a hitter's swing decision. Taking into account pitch type, there seems to be some effect of pitch type on swing/take decisions. Hitters tend to swing more on fastballs and changeups while swinging less often on curveballs. These plots show that count and pitch type should be included as categorical variables into the models.   
 
 ```{r pressure, echo=FALSE, fig.cap="", out.width = '70%', fig.align = 'center'}
-knitr::include_graphics("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/Teams/Mariners_2020/Plots/Swing_Perc_Count_PitchType.png")
+
 ```
 
 Below, is a distribution plot of average swing percentage per batter. We observe that the distribution appears normally distributed with mean around 0.5 and the variability of swing percentages ranging from about 0.3 to 0.65. Not all hitters in baseball are the same. There exist different types of hitters which results in different types of swing percentages. If there was no variability among swing percentages and all hitters plate decisions were similar regardless of level, then it would be more difficult for models to make good predictions.  
