@@ -1,0 +1,782 @@
+---
+title: "Modeling Hitter Swing/Take Decisions & MiLB Prospect Swing/Take Analysis"
+author: "Ruslan Davtian"
+output: html_document
+---
+
+# Problem 1
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+library('stringr')
+library('dplyr')
+library('ggplot2')
+library('ggpubr')
+library('rattle')
+library('sqldf')
+library('caret')
+library('usdm')
+#library('plyr')
+library('rpart')
+library('rpart.plot')
+library('class')
+require('neuralnet')
+require('nnet')
+library('keras')
+library('knitr')
+library(kableExtra)
+require('gridExtra')
+library(e1071)
+`%notin%` <- Negate(`%in%`)
+
+corr_eqn <- function(x,y, digits = 2, binary) 
+{ 
+  if (binary)
+  {
+    corr_coef <- round(ltm::biserial.cor(x, y, use = 'complete.obs', level = 2), digits = digits)
+    paste("italic(r) == ", corr_coef)
+  }
+  else {
+    corr_coef <- round(cor(x, y, use = 'complete.obs'), digits = digits)
+    paste("italic(r) == ", corr_coef)
+  }
+}
+
+correlation_plot <- function(data, x_var, y_var, x_coord, y_coord, binary) 
+{
+  if (binary)
+  {
+    labels <- data.frame(x = x_coord, y = y_coord,
+                         label = corr_eqn(data[,x_var], data[, y_var], binary = T))
+  }
+  else {
+    labels <- data.frame(x = x_coord, y = y_coord,
+                         label = corr_eqn(data[,x_var], data[, y_var], binary = F))
+  }
+  x_var <- rlang::sym(quo_name(enquo(x_var)))
+  y_var <- rlang::sym(quo_name(enquo(y_var)))
+  
+  
+  ggplot2::ggplot(data = data) + ggplot2::aes(!! x_var, !! y_var) + 
+    ggplot2::geom_point() + 
+    ggplot2::geom_text(data = labels, ggplot2::aes(x, y, label = label), parse = TRUE, size = 7, col = 'darkred') + 
+    ggplot2::geom_smooth(method = "lm", col = 'red') + ggplot2::ggtitle(paste(y_var, " Vs ", x_var)) +
+    ggplot2::xlab(paste(x_var)) + ggplot2::ylab(paste(y_var))
+}
+
+
+logloss = function(actual, predicted, eps = 1e-15) 
+{
+  predicted = pmin(pmax(predicted, eps), 1-eps) 
+  - (sum(actual * log(predicted) + (1 - actual) * log(1 - predicted))) / length(actual)
+}  
+
+get_columns = function(data_frame, list_of_vars, match_letter = "") 
+{
+  if (match_letter != "")
+  {
+    cols = ifelse(names(data_frame) %in% list_of_vars | startsWith(names(data_frame), match_letter)
+                  , names(data_frame), "NULL")
+  }
+  else
+  {
+    cols = ifelse(names(data_frame) %in% list_of_vars, names(data_frame), "NULL")
+  }
+  cols = cols[cols != "NULL"]
+  return(data_frame[cols])
+}
+summary_by_group <- function(data, column, group1, group2, double = F)
+{
+  group1 <- rlang::sym(group1)
+  if (double)
+  {
+    group2 <- rlang::sym(group2)
+    return(data %>% 
+            group_by(!!group1, !!group2) %>%
+            summarize_at(vars(column), 
+                          list(mean = mean)))
+  } else{
+    return(data %>% 
+             group_by(!!group1) %>%
+             summarize_at(vars(column), 
+                          list(mean = mean)))
+  }
+}
+barchart_facetwrap_pitch_type <- function(data, x, y, group, title)
+{
+  x <- rlang::sym(x)
+  y <- rlang::sym(y)
+  group <- rlang::sym(group)
+  g <- ggplot(data = data, aes(x= !!x, y= !!y)) +
+    geom_bar(position="dodge", stat="identity", color="black", fill="red2") + 
+    facet_wrap(~pitch_type) + 
+    ggtitle(paste('Average Is Swing by', title)) + ylab('avg_is_swing')
+  return(g)
+}
+
+barchart_basic <- function(data, x, y, limits, title)
+{
+  x <- rlang::sym(x)
+  y <- rlang::sym(y)
+  g <- ggplot(data = data, aes(x= !!x, y= !!y)) +
+    geom_bar(position="dodge", stat="identity", color="black", fill="cyan") + 
+    ggtitle(paste('Average Is Swing by', title)) + ylab('avg_is_swing') + 
+    geom_errorbar(limits, position = 'dodge', width = 0.25)
+  return(g)
+}
+create_strikezone <- function()
+{
+  x <- c(-.95,.95,.95,-.95,-.95)
+  z <- c(1.5,1.5,3.5,3.5,1.5)
+  sz <- as.data.frame(tibble(x,z)) 
+  g <- ggplot() + geom_path(data = sz, aes(x=x, y=z)) +
+    coord_equal() + xlab("feet from home plate") +
+    ylab("feet above the ground") + xlim(-2,2) + ylim(0,4.5)
+  return(g)
+}
+gather_player_level_experience <- function(train_data)
+{
+  batters_by_level <- train_data %>% 
+    group_by(batter_id, level) %>% 
+    tally() %>% 
+    arrange(batter_id, level)
+  
+  unique_batters <- train_data %>% 
+    dplyr::select(batter_id) %>% 
+    distinct() %>% pull()
+  
+  df2 <- data.frame()
+  for (batter in unique_batters)
+  {
+    levels <- train_data %>% 
+      filter(batter_id == batter) %>%
+      dplyr::select(level) %>% distinct() %>% pull() 
+    levels <- I(list(levels))
+    df <- data.frame(batter_id = batter, levels = levels)
+    df2 <- rbind(df2, df)
+  }
+  hitter_exp <- batters_by_level %>% inner_join(df2, by = "batter_id") %>% 
+    group_by(batter_id) %>%
+    mutate(prop_at_level = n / sum(n))
+  hitter_exp <- as.data.frame(hitter_exp) 
+  return(hitter_exp)
+}
+# creates a scatterplot matrix with correlation
+scatterplot_matrix <- function(data, vars) {
+  GGally::ggpairs(data[, vars], 
+                  lower = list(continuous = GGally::wrap("smooth", color = "cyan")))
+}
+
+# Creates a correlation matrix
+correlation_matrix <- function(data, vars)
+{
+  GGally::ggcorr(data[, vars], label = TRUE, label_round = 2,
+                 label_size = 5, hjust = 0.75, angle = -45, layout.exp = 2)
+}
+
+# Create X, Y Scatterplot by different position groups
+scatterplot_by_group <- function(data, x_var, y_var) 
+{
+  x_var <- rlang::sym(quo_name(enquo(x_var)))
+  y_var <- rlang::sym(quo_name(enquo(y_var)))
+  
+  ggplot2::ggplot(data = data) + ggplot2::aes(!! x_var, !! y_var) + 
+    ggplot2::geom_point() + ggplot2::facet_wrap(. ~ pitch_type) +
+    ggplot2::geom_smooth(method = "lm", col = 'red') + ggplot2::ggtitle(paste(y_var, " Vs ", x_var)) +
+    ggplot2::xlab(paste(x_var)) + ggplot2::ylab(paste(y_var))
+}
+run_glmnet <- function(vars, tunelength, train2, test2)
+{
+  set.seed(42)
+  myFolds <- createFolds(train2$is_swing, k = 5)
+  train2$is_swing <- ifelse(train2$is_swing == 1, "Yes","No")
+  #control <- trainControl(classProbs=TRUE, summaryFunction=mnLogLoss,
+  #index = myFolds, savePredictions = TRUE)
+  control <- trainControl(classProbs=TRUE,
+                          index = myFolds, savePredictions = TRUE)
+  glmnet <- train(as.formula(paste0("as.factor(is_swing) ~ ", paste0(vars, collapse = " + "))), data = train2, method = "glmnet", tuneLength = tunelength, #metric="logLoss", 
+trControl=control, family = 'binomial', 
+preProcess = c('nzv','center','scale')) # logLoss
+  
+  #plot1 <- plot(glmnet)
+  imp2 <- varImp(glmnet)
+  print(barchart(sort(rowMeans(imp2$importance), decreasing = T), main = "GLMNET Variable Importance", xlab = "Average Level of Importance", ylab = "Variables"))
+  #grid.arrange(plot1, plot2, nrow=1, ncol=2)
+  
+  cv_test_preds <- predict(glmnet, newdata = test2, type = "prob")
+  test2$is_swing_preds <- cv_test_preds[,2]
+  test2$is_swing_preds <- ifelse(test2$is_swing_preds >= 0.5, 1, 0)
+  
+  preds <- predict(glmnet, newdata = test, type = "prob")
+  glmnet_prob <- preds[, 2]
+  
+  preds_raw <- predict(glmnet, newdata = test, type = 'raw')
+  test$is_swing <- glmnet_prob
+  return(list(glmnet, test, test2))
+}
+run_random_forest <- function(vars, ntrees, tunelength, train2, test2)
+{
+  set.seed(42)
+  myFolds <- createFolds(train2$is_swing, k = 5)
+  train2$is_swing <- ifelse(train2$is_swing == 1, "Yes","No")
+  #control <- trainControl(classProbs=TRUE, summaryFunction=mnLogLoss,
+  #index = myFolds, savePredictions = TRUE)
+  control <- trainControl(classProbs=TRUE,
+                          index = myFolds, savePredictions = TRUE)
+  rF <- train(as.formula(paste0("as.factor(is_swing) ~ ", paste0(vars, collapse = " + "))), 
+                  data = train2, ntree = ntrees, method = 'rf', 
+                  tuneLength = tunelength,
+                  #metric="logLoss", 
+                  trControl=control, importance = T) # logLoss
+  
+  #plot1 <- plot(rF, main = 'Average Accuracy Across 5-Fold CV', 
+             #xlab = 'Number of Variables')
+  imp = varImp(rF)
+  print(barchart(sort(rowMeans(imp$importance), decreasing = T), 
+                 main = "Random Forest Variable Importance", 
+                 xlab = "Average Level of Importance", ylab = "Variables"))
+  #grid.arrange(plot1, plot2, nrow=1, ncol=2)
+  cv_test_preds <- predict(rF, newdata = test2, type = "prob")
+  test2$is_swing_preds <- cv_test_preds[,2]
+  test2$is_swing_preds <- ifelse(test2$is_swing_preds >= 0.5, 1, 0)
+  
+  preds <- predict(rF, newdata = test, type = "prob")
+  rf_prob <- preds[, 2]
+  
+  preds_raw <- predict(rF, newdata = test, type = 'raw')
+  test$is_swing <- rf_prob
+  return(list(rF, test, test2))
+}
+run_gbm <- function(vars, gbmGrid, train2, test2)
+{
+  set.seed(42)
+  myFolds <- createFolds(train2$is_swing, k = 5)
+  train2$is_swing <- ifelse(train2$is_swing == 1, "Yes","No")
+  #control <- trainControl(classProbs=TRUE, summaryFunction=mnLogLoss,
+  #index = myFolds, savePredictions = TRUE)
+  control <- trainControl(classProbs=TRUE, index = myFolds, savePredictions = TRUE)
+  gbm <- train(as.formula(paste0("as.factor(is_swing) ~ ", paste0(vars, collapse = " + "))), 
+              data = train2, method = 'gbm',verbose = F, 
+              tuneGrid = gbmGrid,
+              #metric="logLoss", 
+              trControl=control) # logLoss
+  print(plot(gbm, main = 'Average Accuracy Across 5-Fold CV', 
+             xlab = 'Number of Variables'))
+  model_sum <- summary(gbm)
+  kable(model_sum, row.names = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T)
+  #imp = varImp(gbm)
+  #plot2 <- barchart(sort(rowMeans(imp$importance), decreasing = T), 
+                 #main = "Random Forest Variable Importance", 
+                 #xlab = "Average Level of Importance", ylab = "Variables")
+  #grid.arrange(plot1, plot2, nrow=1, ncol=2)
+  
+  cv_test_preds <- predict(gbm, newdata = test2, type = "prob")
+  test2$is_swing_preds <- cv_test_preds[,2]
+  test2$is_swing_preds <- ifelse(test2$is_swing_preds >= 0.5, 1, 0)
+  
+  preds <- predict(gbm, newdata = test, type = "prob")
+  gbm_prob <- preds[, 2]
+  
+  preds_raw <- predict(gbm, newdata = test, type = 'raw')
+  test$is_swing <- gbm_prob
+  return(list(gbm, test, test2))
+}
+train_test_split <- function(train, nrows)
+{
+  set.seed(42)
+  train <- sample(train)[1:nrows,]
+  dt <- sort(sample(nrow(train), nrow(train)*.7))
+  train2 <- train[dt,]
+  test2 <- train[-dt,]
+  return(list(train2, test2))
+}
+run_xgboost <- function(vars, tunelength, train2, test2)
+{
+  set.seed(42)
+  myFolds <- createFolds(train2$is_swing, k = 5)
+  train2$is_swing <- ifelse(train2$is_swing == 1, "Yes","No")
+  #control <- trainControl(classProbs=TRUE, summaryFunction=mnLogLoss,
+  #index = myFolds, savePredictions = TRUE)
+  control <- trainControl(classProbs=TRUE,
+                          index = myFolds, savePredictions = TRUE)
+  xgboost <- train(as.formula(paste0("as.factor(is_swing) ~ ", paste0(vars, collapse = " + "))), 
+               data = train2, method = 'xgbTree',
+               tuneLength = tunelength,
+               #metric="logLoss", 
+               trControl=control) # logLoss
+  
+  #print(plot(xgboost, main = 'Average Accuracy Across 5-Fold CV', 
+             #xlab = 'Number of Variables'))
+  imp = varImp(xgboost)
+  print(barchart(sort(rowMeans(imp$importance), decreasing = T), 
+                 main = "XGBoost Variable Importance", 
+                 xlab = "Average Level of Importance", ylab = "Variables"))
+  #grid.arrange(plot1, plot2, nrow=1, ncol=2)
+  preds <- predict(xgboost, newdata = test, type = "prob")
+  xgboost_prob <- preds[, 2]
+  
+  cv_test_preds <- predict(xgboost, newdata = test2, type = "prob")
+  test2$is_swing_preds <- cv_test_preds[,2]
+  test2$is_swing_preds <- ifelse(test2$is_swing_preds >= 0.5, 1, 0)
+  
+  preds_raw <- predict(xgboost, newdata = test, type = 'raw')
+  preds_raw <- ifelse(preds_raw == 'Yes', 1, 0)
+  test$is_swing <- xgboost_prob
+  return(list(xgboost, test, test2))
+}
+setwd('C:/Users/rusla/OneDrive/MLBAnalyticsJobs/Teams/Mariners_2020')
+```
+
+### Data Description:
+
+The 2021-train.csv and 2021-test.csv data sets represent pitch-by-pitch level data for many batters and pitchers across professional baseball for parts of the 2019 season. The data provides information such as pitch speed, pitch location, pitch break, pitch release, pitch type, result of play, etc. The training data set contains a total of 1,078,637 pitches and 37 columns while the testing set contains 370,283 pitches and the same number of columns as the training set. The goal of this analysis is to build a model on some subset of the data (training set) to predict whether or not a pitch in the test data set resulted in a swing or take. Below is an output of the first five rows of the training data set.  
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+train <- read.csv("2021-train.csv")
+test <- read.csv("2021-test.csv")
+train$date <- as.Date(train$date)
+test$date <- as.Date(test$date)
+kable(head(train[, 1:10], 5), "pipe", row.names = F, digits = 2)
+kable(head(train[, 11:20], 5), "pipe", row.names = F, digits = 2)
+kable(head(train[, 21:30], 5), "pipe", row.names = F, digits = 2)
+```
+
+### Missing Values and Data Manipulation: 
+
+After investigating, I found that 17,878 rows in the training data set are missing spin rate and 528 rows are missing pitch location coordinates. The values seem to be missing at random and with a very large sample size, I felt it was appropriate to filter out those rows. Next, I removed the column named y55 because the values are the same for every observation and filtered out a few rows with switch hitters as the batter side. Finally, I filtered out rows where the pitch type is missing. 
+
+I created a count column by concatening number of balls and strikes as well as the is_swing response variable column based on pitch call. A swing happens when pitch call equals in play, strike swinging, or foul ball and no swing otherwise. Furthermore, I added two more columns. First, I created a binary level variable that is minors if a player's at bat is in A, A+, AA, or AAA and majors if a player's at bat is in MLB. Second, I created an in zone indicator variable that is 1 if the pitch crossed the plate inside the strike-zone and 0 if the pitch crossed the plate outside of the strike-zone.
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+train <- train %>% dplyr::select(-y55) %>%
+  filter(batter_side != 'S') %>%
+  mutate(count = case_when((balls == 0 & strikes == 0) ~ "0-0",
+                           (balls == 0 & strikes == 1) ~ "0-1",
+                           (balls == 0 & strikes == 2) ~ "0-2",
+                           (balls == 1 & strikes == 0) ~ "1-0",
+                           (balls == 1 & strikes == 1) ~ "1-1",
+                           (balls == 1 & strikes == 2) ~ "1-2",
+                           (balls == 2 & strikes == 0) ~ "2-0",
+                           (balls == 2 & strikes == 1) ~ "2-1",
+                           (balls == 2 & strikes == 2) ~ "2-2",
+                           (balls == 3 & strikes == 0) ~ "3-0",
+                           (balls == 3 & strikes == 1) ~ "3-1",
+                           (balls == 3 & strikes == 2) ~ "3-2"),
+         count = as.factor(count),
+         is_swing = case_when(pitch_call %in% c("FoulBall","InPlay","StrikeSwinging") ~ 1,
+                              TRUE ~ 0)) %>% 
+  mutate(binary_level = case_when(level %in% c('A','AA','AAA','A+') ~ 'minors', TRUE ~ 'majors'), in_zone = case_when((plate_height <= 3.5 & plate_height >= 1.5 & abs(plate_side) <= 0.95) ~ 1, TRUE ~ 0)) %>% filter(!pitch_type == '') %>% na.omit()
+```
+
+### Analysis Approach:
+
+My approach is to build a few machine learning binary classification algorithms to predict swing/no swing in the test set and compare each one's performance. I will choose the model with the highest cross validated prediction accuracy as my final model. I chose to compare three algorithms (penalized logistic regression, random forest, and xgboost) using 5-fold cross validation each time on the training set for consistency between the algorithms. Also, I compared each algorithm by computing overall accuracy and kappa (accuracy normalized to account for imbalance of classes) statistics on the training set. I will select the model that maximizes cross validated train accuracy in predictions. Due to the volume of training data that results in long run times, I decided to fit about 20% of the training data to the models. Since there are over one million rows, I am still using over 100,000 observations to build models which are plenty to draw conclusions from. 
+
+### Balance of Classes:
+
+To understand the proportion of pitches resulting in swings or takes, I created a table below displaying the proportions. About 47% of the pitches resulted in swings which means a naive, basic model of randomly guessing swing or no swing would result in about 47% accuracy in predictions. The goal here is to find factors that can explain some of the variation in swing decisions such that when making predictions, the model has an accuracy above 47%. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+tab = data.frame(round(prop.table(table(train$is_swing)),3))
+tab = t(tab)
+tab = t(as.data.frame(as.numeric(tab[2,])))
+colnames(tab) = c("Overall Take%", "Overall Swing%")
+kable(tab, row.names = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T)
+```
+
+### Correlations:
+
+To find which variables are good candidates to include as explanatory variables, I looked into linear correlations among each of the continuous variables against is_swing. Below, is a set of four correlation matrices each with the response variable in the far right corner. To find the correlations between the response variable of interest (is_swing) and any one of the explanatory variables, one needs to traverse down the far right column of each plot. All other cells to the left compare correlations among explanatory variables with each other. This is useful for finding evidence of multicollinearity among the predictors but I will address that issue later. 
+
+We can see that most of the candidate variables such as pitch velocity, pitch location, release points, angle and length of breaks, etc. have almost no linear correlation with a batter's swing decision. However, that does not necessarily mean there is no relationship between those candidate variables and the response since uncorrelated does not imply independence. We should not eliminate those variables from consideration when building models. Additionally, the bottom right correlation plot shows that the number of strikes and the number of balls have some positive correlation with the is_swing variable so count may be a strong predictor of a batters swing decision.    
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=10, fig.height=5, fig.align = 'center'}
+
+vars <- c("release_speed","vert_release_angle","horz_release_angle",
+          "spin_rate","spin_axis","is_swing")
+plot1 <- correlation_matrix(sample(train), vars = vars)
+vars2 <- c("rel_height","rel_side","extension","vert_break","induced_vert_break","is_swing")
+plot2 <- correlation_matrix(sample(train), vars = vars2)
+grid.arrange(plot1, plot2, nrow=1, ncol=2)
+```
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=10, fig.height=5, fig.align = 'center'}
+
+vars3 <- c("horz_break","plate_height","plate_side","zone_speed","vert_approach_angle","is_swing")
+plot3 <- correlation_matrix(sample(train), vars = vars3)
+
+vars4 <- c("horz_approach_angle","x55","z55","strikes","balls","is_swing") 
+plot4 <- correlation_matrix(sample(train), vars = vars4)
+grid.arrange(plot3, plot4, nrow=1, ncol=2)
+```
+
+### Data Visualizations:
+
+Let's look more closely at how swing percentage changes with different counts separated by pitch type. Below, are six bar charts where the x-axis represents each of the twelve possible counts and the y-axis represents average swing percentage. Each of the six bar charts represent different pitch types.
+
+Regardless of pitch type, hitters are very reluctant to swing at a 3-0 count which is expected. Also, hitters are typically more patient on the first pitch of the at bat as well as when they are ahead of the count with no strikes. Hitters are most aggressive anytime they have two strikes on them. Clearly, there is an effect of count on a hitter's swing decision. Taking into account pitch type, there seems to be some effect of pitch type on swing/take decisions. Hitters tend to swing more on fastballs and changeups while swinging less often on curveballs. These plots show that count and pitch type should be included as categorical variables into the models.   
+
+```{r pressure, echo=FALSE, fig.cap="", out.width = '70%', fig.align = 'center'}
+knitr::include_graphics("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/Teams/Mariners_2020/Plots/Swing_Perc_Count_PitchType.png")
+```
+
+Below, is a distribution plot of average swing percentage per batter. We observe that the distribution appears normally distributed with mean around 0.5 and the variability of swing percentages ranging from about 0.3 to 0.65. Not all hitters in baseball are the same. There exist different types of hitters which results in different types of swing percentages. If there was no variability among swing percentages and all hitters plate decisions were similar regardless of level, then it would be more difficult for models to make good predictions.  
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=6, fig.height=4, fig.align = 'center'}
+swing_perc_by_batter <- data.frame(summary_by_group(train, "is_swing", "batter_id"))
+colnames(swing_perc_by_batter) <- c("batter_id","mean_swing_perc_by_batter")
+ggplot(data = swing_perc_by_batter, aes(x = mean_swing_perc_by_batter)) + 
+  geom_histogram(fill = 'red2', color = 'black') + 
+  ggtitle("Distribution of Mean Swing% for Hitters")
+train <- train %>% inner_join(swing_perc_by_batter, by = "batter_id")
+```
+
+To better illustrate how type of hitter and level can explain a hitter's approach at the plate, I decided to choose two players on the extreme ends: The hitter with the highest average swing percentage (hitter A) and the hitter with the lowest average swing percentage (hitter B). Hitter A is a high A (A+) level left-handed hitter while hitter B is a major league right handed hitter. Both hitters have seen approximately between 900-1000 pitches in the training data. 
+
+Below, the first row of plots represent batter A's "bad decisions" while the second row represents batter B's "bad decisions". A "bad decision" is defined as not swinging at pitches that landed inside the strike-zone (first column of plots) while swinging at pitches outside of the strike-zone (second column of plots).
+
+In choosing the two extremes, we observe clear differences among both batters in regards to swinging on pitches out of the strike-zone. The high A ball hitter is very aggressive compared to the major league hitter which is expected. I expect minor league players to have a higher level of desperation to perform well in order to advance to the major leagues as quickly as possible than already established major league players. Hitter A's aggression seems to be attributing to making bad decisions and he seems to struggle on fastballs above the belt and breaking balls below the zone. Hitter B has swung out of the zone much less than hitter A. However, hitter A still took lots of pitches in the zone, especially fastballs. The decision to not swing at pitches in the zone might be strategic as opposed to incorrect. At the MLB level, the level of competition is better and hitters are more selective in their swing decisions. It is strategic for a hitter to sit on a location and swing at pitches only in his sweet spot while taking pitches in the strike-zone that cannot be barreled up.  
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=9, fig.height=5, fig.align='center'}
+z <- create_strikezone()
+
+batter_who_swings_most <- train[which.max(train$mean_swing_perc_by_batter),"batter_id"]
+batter_who_swings_least <- train[which.min(train$mean_swing_perc_by_batter),"batter_id"]
+
+level_of_batter_most_swings <- train %>% filter(batter_id == batter_who_swings_most) %>% dplyr::select(batter_side) %>% distinct()
+#print("batter A:")
+#kable(level_of_batter_most_swings)
+batter_most_swings <- train %>% filter(batter_id == batter_who_swings_most,
+                                       in_zone == 1, is_swing == 0)
+plot1 <- z + geom_point(data = batter_most_swings, 
+               aes(x=plate_side,y=plate_height, color = pitch_type)) + ggtitle("Batter A In Zone Takes")
+
+# Plots out of zone swings (bad decision)
+batter_most_swings <- train %>% filter(batter_id == batter_who_swings_most,
+                                       in_zone == 0, is_swing == 1)
+plot2 <- z + geom_point(data = batter_most_swings, 
+               aes(x=plate_side,y=plate_height, color = pitch_type)) + ggtitle("Batter A Out of Zone Swings")
+grid.arrange(plot1, plot2, nrow=1, ncol=2)
+```
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=9, fig.height=5, fig.align = 'center'}
+level_of_batter_least_swings <- train %>% filter(batter_id == batter_who_swings_least) %>% dplyr::select(batter_side) %>% distinct()
+#kable(level_of_batter_least_swings)
+batter_least_swings <- train %>% filter(batter_id == batter_who_swings_least,
+                                       in_zone == 1, is_swing == 0)
+plot3 <- z + geom_point(data = batter_least_swings, 
+               aes(x=plate_side,y=plate_height, color = pitch_type)) + ggtitle("Batter B In Zone Takes")
+
+# Plots out of zone swings (bad decision)
+batter_least_swings <- train %>% filter(batter_id == batter_who_swings_least,
+                                       in_zone == 0, is_swing == 1)
+plot4 <- z + geom_point(data = batter_least_swings, 
+               aes(x=plate_side,y=plate_height, color = pitch_type)) + ggtitle("Batter B Out of Zone Swings")
+grid.arrange(plot3, plot4, nrow=1, ncol=2)
+```
+
+### Multicollinearity Check:
+
+Before I perform any modeling, I want to check if any of the variables selected as candidates for the models explain similar variation in swing/take decisions. Therefore, I checked Variance Inflation Factors (VIFs) among the variables. Any two variables over 9 reveal severe multicollinearity among them and one of them should be removed. The VIFs are located below, and variables horz_release_angle, vert_break, rel_side, horz_approach_angle, vert_approach_angle, and vert_release_angle all have extreme values that indicate they are all collinear. Some pairs of these variables have extremely high positive correlations with each other so removing one of them is necessary.   
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+vars <- c("strikes","balls","release_speed","vert_release_angle",
+          "horz_release_angle","spin_rate","rel_height","rel_side","vert_break",
+          "induced_vert_break","horz_break","plate_height","plate_side",
+          "vert_approach_angle","horz_approach_angle","x55","z55")
+values <- as.data.frame(train[, vars])
+values$is_swing <- as.numeric(train$is_swing)
+values = usdm::vif(values)
+values = round(values$VIF,3)
+vif = data.frame(matrix(nrow = 1, ncol = length(values)))
+colnames(vif) = c(vars, "is_swing")
+vif = rbind(vif, values)
+vif = vif[2,]
+kable(vif[1:9], digits = 2, row.names = F, align = c('l','l')) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T)
+kable(vif[10:17], digits = 2, row.names = F, align = c('l','l')) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T)
+```
+
+Now, severe multicollinearity is no longer an issue. Below are the quantitative variables that I will include in the model along with count, level, and pitch type.
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+vars <- c("strikes","balls","release_speed","spin_rate","rel_height",
+          "induced_vert_break","horz_break","plate_height","plate_side",
+          "x55")
+values <- as.data.frame(train[, vars])
+values$is_swing <- as.numeric(train$is_swing)
+values = usdm::vif(values)
+values = round(values$VIF,3)
+vif = data.frame(matrix(nrow = 1, ncol = length(values)))
+colnames(vif) = c(vars, "is_swing")
+vif = rbind(vif, values)
+vif = vif[2,]
+kable(vif, digits = 2, row.names = F, align = c('l','l')) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T)
+```
+
+### Pre-Processing and Machine Learning:
+
+First, I split the overall train data set into a 70/30 train, test split. For each model, I implemented the standard five fold cross validation on the 70% subset of the training data. Within the 70% train split, data is split into five subsets where the first four subsets are used for training and the fifth is used as the testing set for making predictions. This process is repeated until each of the five subsets has been used as a testing set. This ensures that the model will not overfit the data by evaluating the model's average performance on the five hold-out folds. I standardized the input variables for only the penalized logistic regression. Tree-partitioning algorithms such as random forests and xgboost do not estimate coefficients so standardizing will not have interpretation benefits. Since the binary class is_swing is approximately balanced (47% vs 53%), I felt it is appropriate to use accuracy and kappa metrics to evaluate the models. If the classes were unbalanced, I would consider minimizing the log-loss cost function or looking at precision and recall metrics from a confusion table. Lastly, I computed predictions on the 30% test split from earlier and computed accuracy from the confusion table. I expect the best cross validated model to also have the highest accuracy on the 30% test split. For each algorithm, I provided a sorted horizontal barchart displaying the importance rank of each variable for the final model. The most important variable will have the highest value on a scale from 0 to 100 and all variables not included will have a value equal to 0.      
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+test <- test %>% dplyr::select(-y55) %>%
+  filter(batter_side != 'S') %>%
+  mutate(count = case_when((balls == 0 & strikes == 0) ~ "0-0",
+                           (balls == 0 & strikes == 1) ~ "0-1",
+                           (balls == 0 & strikes == 2) ~ "0-2",
+                           (balls == 1 & strikes == 0) ~ "1-0",
+                           (balls == 1 & strikes == 1) ~ "1-1",
+                           (balls == 1 & strikes == 2) ~ "1-2",
+                           (balls == 2 & strikes == 0) ~ "2-0",
+                           (balls == 2 & strikes == 1) ~ "2-1",
+                           (balls == 2 & strikes == 2) ~ "2-2",
+                           (balls == 3 & strikes == 0) ~ "3-0",
+                           (balls == 3 & strikes == 1) ~ "3-1",
+                           (balls == 3 & strikes == 2) ~ "3-2"),
+         count = as.factor(count))
+test$plate_height <- ifelse(is.na(test$plate_height), 
+                            median(test$plate_height, na.rm=TRUE), 
+                            test$plate_height)
+test$plate_side <- ifelse(is.na(test$plate_side), 
+                            median(test$plate_side, na.rm=TRUE), 
+                            test$plate_side)
+test$spin_rate <- ifelse(is.na(test$spin_rate), 
+                          median(test$spin_rate, na.rm=TRUE), 
+                          test$spin_rate)
+train$pitch_type = as.factor(train$pitch_type)
+test$pitch_type = as.factor(test$pitch_type)
+test <- test %>% filter(!pitch_type == '')
+
+train2 <- train_test_split(train, 200000)[[1]]
+test2 <- train_test_split(train,  200000)[[2]]
+```
+
+### Penalized Logistic Regression:
+
+Instead of manually inputting variables and iterating through every possible combination of variables, I chose to run a penalized logit model that imposes a penalty to the logistic model for having too many variables. There are two parameters to optimize (alpha and lambda). The alpha parameter ranges from 0 to 1  which controls the mix or weight of performing lasso regression (alpha = 0, shrinks insignificant beta coefficients to exactly 0) and ridge regression (alpha = 1, shrinks insignificant beta coefficients towards 0). The lambda parameter controls the size of the penalty (relaxed vs strict). I tested five equally spaced alpha parameters and for each alpha parameter, five unique values for lambda. The best model was chosen such that the set of parameters formed the largest mean cross validated accuracy score. The variable importance chart from the best model and the confusion matrix from that model on the 30% testing set are seen below. The overall accuracy on the test set is 60%.      
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=7, fig.height=5, fig.align='center'}
+vars <- c("strikes","balls","release_speed","spin_rate","rel_height",
+          "induced_vert_break","horz_break","plate_height","plate_side",
+          "x55","count","pitch_type","level")
+
+glmnetGrid <- expand.grid(alpha = seq(0, 1, 0.1),
+                          lambda = seq(0.0001, 1, length = 100))
+glmnet_model <- run_glmnet(vars = vars, tunelength = 3, train2, test2)
+mod_glm <- glmnet_model[[1]]
+cv_test_preds <- glmnet_model[[3]]
+cm <- confusionMatrix(as.factor(cv_test_preds$is_swing_preds), as.factor(cv_test_preds$is_swing), dnn = c("Prediction", "Actual"))
+test_accuracy <-  sum(diag(cm$table))/ sum(cm$table)
+colnames(cm$table) <- c("Predicted","")
+rownames(cm$table) <- c("Actual","")
+kable(cm$table) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "center", fixed_thead = T) %>%
+  footnote(symbol = "Confusion Table on Test Set for Best Model")
+```
+
+### Random Forest:
+
+Instead of creating one decision tree and basing results off one iteration of splits on the same data, random forests create n number of trees bootstrapping the training data set each time. The n decision trees form n predictions for each observation and the algorithm takes the class majority as the overall prediction for the observation. This ensures that the model does not over fit the training data and averaging out n predictions reduces the variability in the predictions. The only parameter to optimize is the number of features considered as candidates for splitting at each node. I fixed number of trees n equal to 500. The variable importance chart from the best model and the confusion matrix from that model on the 30% testing set are seen below. The overall accuracy on the test set is 76%.
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=7, fig.height=5, fig.align='center'}
+rf <- run_random_forest(vars, 500, tunelength = 3, train2, test2)
+mod_rf <- rf[[1]]
+cv_test_preds <- rf[[3]]
+cm <- confusionMatrix(as.factor(cv_test_preds$is_swing), as.factor(cv_test_preds$is_swing_preds))
+test_accuracy <-  sum(diag(cm$table))/ sum(cm$table)
+colnames(cm$table) <- c("Predicted","")
+rownames(cm$table) <- c("Actual","")
+kable(cm$table) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "center", fixed_thead = T) %>%
+  footnote(symbol = "Confusion Table on Test Set for Best Model")
+```
+
+### XG Boost:
+
+This algorithm is an improved implementation of the gradient boosting model (gbm), which is focused on fast computation and better model performance. The basic idea of this algorithm is an ensemble method where sequential "weak" tree-based learners are built in which the inputs to each subsequent model are the errors from the previous models. Each model attempts to learn more about the unexplained variation in the response of the previous models. Instead of creating large trees like random forests, boosting algorithms create many tree models with fewer splits and less depth. However, there are more parameters to optimize such as number of trees or iterations, the rate at which the gradient boosting learns, and the depth of the tree but these are all tuned through cross validation. The variable importance chart from the best model and the confusion matrix from that model on the 30% testing set are seen below. The overall accuracy on the test set is 77%.  
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=7, fig.height=5, fig.align='center'}
+xgboost <- run_xgboost(vars, tunelength = 3, train2, test2)
+mod_xgboost <- xgboost[[1]]
+mod_xgboost_preds <- xgboost[[2]]
+mod_xgboost_preds <- mod_xgboost_preds[, c("pitch_id","is_swing")]
+mod_xgboost_preds$is_swing <- ifelse(mod_xgboost_preds$is_swing >= 0.5, 1, 0)
+cv_test_preds <- xgboost[[3]]
+cm <- confusionMatrix(as.factor(cv_test_preds$is_swing), as.factor(cv_test_preds$is_swing_preds))
+test_accuracy <-  sum(diag(cm$table))/ sum(cm$table)
+colnames(cm$table) <- c("Predicted","")
+rownames(cm$table) <- c("Actual","")
+kable(cm$table) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "center", fixed_thead = T) %>%
+  footnote(symbol = "Confusion Table on Test Set for Best Model")
+```
+
+### Model Comparisons:
+
+After fitting all three models, we observe that the tree based models clearly outperformed the penalized logistic regression model. The xgboost model seems to have performed slightly better than the random forest so in making my final predictions on the test set provided, I will use the xgboost model to make the final predictions. I expect to have approximately a 75% accuracy rate on those predictions. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=7, fig.height=4, fig.align='center'}
+model_list <- list(glmnet = mod_glm, rf = mod_rf, xgboost = mod_xgboost)
+resamples <- resamples(model_list)
+dotplot(resamples, conf.level = 0.99, main = '5-Fold CV Error Model Comparison')
+
+```
+
+### Conclusion:
+
+The main goal of this problem is to be able to build a model to predict swing/no swing more accurately than simply guessing at random which would give an accuracy about 50%. That goal is achieved as the xgboost model chosen can accurately predict whether a batter swings or not 77% of the time, a huge improvement over guessing. Looking back at the variable importance of the xgboost model, it seems that both x, y coordinates of plate location are the most significant predictors of swing/no swing followed by count, pitch movement (horizontal and vertical), pitch velocity, and fastball pitch type. These variables all make sense intuitively to have an effect on a hitter's decision to swing. Lastly, below is a quick summary distribution of swing/no swing on the original training set and my predictions on the test set. The distributions are similar which means my predictions make sense. 
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.align='center'}
+test_data <- xgboost[[2]] 
+preds <- test_data[, c("pitch_id","is_swing")]
+preds$is_swing <- ifelse(preds$is_swing >= 0.5, 1, 0)
+
+kable(round(t(data.frame(unclass(summary(train$is_swing)), check.names = FALSE, stringsAsFactors = FALSE)),3), row.names = F) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T) %>%
+  footnote(symbol = "Distribution of Training Swing/Take Decisions")
+
+kable(round(t(data.frame(unclass(summary(preds$is_swing)), check.names = FALSE, stringsAsFactors = FALSE)),3), row.names = F) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T) %>%
+  footnote(symbol = "Distribution of Test Predictions Swing/Take Decisions")
+write.csv(x = mod_xgboost_preds, file = "test_predictions.csv", row.names = F)
+```
+
+
+# Problem 2
+
+### Introduction:
+
+Hi coach,
+
+I am one of the analysts on the team and have been assigned to investigate a baseball related question of interest for you. 
+
+### Question: 
+
+Is there any recency effect of promotion that affects a player's
+ability to swing at good pitches while avoiding bad pitches? 
+
+### Goal:
+
+The goal of this research is to compare plate discipline of recent prospects after their promotion to MLB against their plate discipline during their most recent minor league stint. From this comparison, we can quantify an "adjustment period" that players have when being promoted to MLB from the minors.  
+
+### Method:
+
+I used Statcast data across different levels for the first half of the 2019 season. I came up with a list of hitters who qualify as prospects that got promoted to MLB. This was done by taking all hitters with minor and major league at bats and only keeping players who spent the majority of their at bats in the minors. This eliminates any major league player who made rehab starts in the minors. Also, I created a list of all current major league hitters as a third comparison group.
+
+In order to quantify plate discipline, I created a metric called decision meter that is either 1 for a good decision or 0 for a bad decision. A bad decision is defined as a hitter who did not swing at a pitch that landed inside the strike-zone while also swinging at a pitch outside of the strike-zone. A good decision is the opposite where a hitter swung at a pitch inside the strike-zone and did not swing at a pitch outside of the strike-zone. Averaging the decision for each hitter yields a score between 0 and 1. The higher the score, the better the hitter is at making good decisions. This is the metric that will be used to investigate any adjustment period that prospects may have. 
+
+### Results:
+
+Below, are quick summary tables that describe the decision meter for batters under three different scenarios. The first table depicts the characteristics of decision meter for all prospects when hitting in the minors. The second summary table describes the decision meter of the same prospects but during their at bats at the major league level. The last table describes the decision meter for current major league players. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE}
+train <- train %>%
+  mutate(decision_meter = case_when((in_zone == 1 & is_swing == 1) ~ 1,
+                                    (in_zone == 0 & is_swing == 0) ~ 1,
+                                    (in_zone == 1 & is_swing == 0) ~ 0,
+                                    (in_zone == 0 & is_swing == 1) ~ 0,
+                                    (pitch_call == 'BallCalled') ~ 1,
+                                    (pitch_call == 'StrikeCalled') ~ 0))
+hitters_exp <- gather_player_level_experience(train)
+mlb_only_hitters <- unique(hitters_exp[grepl("^MLB$", hitters_exp$levels),"batter_id"])
+any_mlb_hitter <- unique(hitters_exp[grepl("MLB", hitters_exp$levels), "batter_id"])
+prospects <- setdiff(any_mlb_hitter, mlb_only_hitters)
+
+train <- train %>%
+  inner_join(hitters_exp[,c("batter_id","level","prop_at_level")],
+             by = c("batter_id","level"))
+
+rehab_batters <- hitters_exp %>%
+  filter(batter_id %in% prospects) %>%
+  filter(level == 'MLB' & prop_at_level >= 0.85) %>%
+  dplyr::select(batter_id) %>% pull()
+
+rookies <- train %>% filter(batter_id %in% c(prospects)) %>%
+  filter(batter_id %notin% rehab_batters) %>%
+  group_by(batter_id, binary_level) %>% summarize(avg_decision_meter = mean(decision_meter)) %>%
+  tidyr::spread(key = binary_level, value = avg_decision_meter) %>%
+  mutate(adjustment_meter = majors - minors)
+
+pros <- train %>% filter(batter_id %in% c(mlb_only_hitters)) %>%
+  group_by(batter_id) %>%
+  summarize(avg_decision_meter = mean(decision_meter))
+```
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.align='center'}
+kable(round(t(data.frame(unclass(summary(rookies$minors)), check.names = FALSE, stringsAsFactors = FALSE)),3), row.names = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed","responsive"), full_width = F, position = "left", fixed_thead = T) %>%
+  footnote(symbol = "Prospects MiLB Decision Meter Distribution")
+
+kable(round(t(data.frame(unclass(summary(rookies$majors)), check.names = FALSE, stringsAsFactors = FALSE)),3), row.names = F) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T) %>%
+  footnote(symbol = "Prospects MLB Decision Meter Distribution")
+
+kable(round(t(data.frame(unclass(summary(pros$avg_decision_meter)), check.names = FALSE, stringsAsFactors = FALSE)),3), row.names = F) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T) %>%
+  footnote(symbol = "MLB Pros Decision Meter Distribution")
+```
+
+From the mean above, we can conclude that on average, prospects are making worse decisions when they get called up versus their minor league at bats. This makes sense as we expect minor league hitters to face lesser competition compared to MLB pitchers and these hitters tend to have a more aggressive approach at the plate. For minor league players, they are looking to make things happen and produce quickly to position themselves for promotion quicker. So keeping the same approach at the MLB level but face better pitchers will result in making worse decisions.   
+
+We can observe this more visually with the plot below. These prospects at the minor league level are consistently making good decisions at a rate centered close to 70%. They would not be called up if they were not performing well. However, after the call-up, the spread or variability among hitters increases. Some hitters adjust well but others take longer to adjust. There are more cases of prospects making good decisions at a below average rate at the major league level than at the minor league level. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=6, fig.height=4, fig.align='center'}
+rookies2 <- train %>% filter(batter_id %in% c(prospects)) %>%
+  filter(batter_id %notin% rehab_batters) %>%
+  group_by(batter_id, binary_level) %>% summarize(avg_decision_meter = mean(decision_meter))
+
+ggplot(rookies2, aes(avg_decision_meter, fill = binary_level)) + 
+  geom_density(alpha = 0.2) + ggtitle("Rookies MLB vs MiLB Good Plate Decision %") +
+  xlab("Mean Decision Meter") 
+```
+
+Let's look at specific examples. I have listed below the top ten players with the largest decision meter drop at the major league level compared to their minor league performance. On average, these ten hitters have seen only about 70 pitches at the MLB level but its clear that these hitters are going through an adjustment period. They are making worse plate decisions in the first few weeks of MLB experience which is crucial to know during a playoff run late in the season. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.align='center'}
+struggling <- rookies[order(rookies$adjustment_meter),]
+colnames(struggling) <- c("batter","MLB_Decision_Meter","MiLB_Decision_Meter","adjustment")
+kable(head(struggling,10), row.names = F) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left", fixed_thead = T)
+``` 
+
+For example, let's choose the third player on the top ten list (batter id "e3dde457"). Below, the first row of plots represents the hitters bad plate decisions before the call-up while the second row represents the hitter's bad decisions after the call-up. This particular batter saw 695 pitches in AAA and 162 pitches in MLB. Even with the sample size discrepancies, we are still seeing a large number of swings for pitches way out of the strike-zone at the MLB level. 
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=8, fig.height=4, fig.align='center'}
+rookie_batter <- "e3dde457"
+
+rookie_minors <- train %>% filter(batter_id == rookie_batter, 
+                                       binary_level == 'minors',
+                                       in_zone == 1, is_swing == 0)
+plot1 <- z + geom_point(data = rookie_minors, 
+                        aes(x=plate_side,y=plate_height, color = pitch_type)) + 
+  ggtitle("Rookie Batter Minors In Zone Takes")
+
+# Plots out of zone swings (bad decision)
+rookie_minors <- train %>% filter(batter_id == rookie_batter, 
+                                  binary_level == 'minors',
+                                  in_zone == 0, is_swing == 1)
+plot2 <- z + geom_point(data = rookie_minors, 
+                        aes(x=plate_side,y=plate_height, color = pitch_type)) + 
+  ggtitle("Rookie Batter Minors Out of Zone Swings")
+grid.arrange(plot1, plot2, nrow=1, ncol=2)
+```
+
+
+```{r, echo = FALSE, results = 'asis', warning = FALSE, message = FALSE, fig.width=8, fig.height=4, fig.align='center'}
+rookie_majors <- train %>% filter(batter_id == rookie_batter, 
+                                  binary_level == 'majors',
+                                  in_zone == 1, is_swing == 0)
+plot3 <- z + geom_point(data = rookie_majors, 
+                        aes(x=plate_side,y=plate_height, color = pitch_type)) + 
+  ggtitle("Rookie Batter MLB In Zone Takes")
+
+# Plots out of zone swings (bad decision)
+rookie_majors <- train %>% filter(batter_id == rookie_batter, 
+                                  binary_level == 'majors',
+                                  in_zone == 0, is_swing == 1)
+plot4 <- z + geom_point(data = rookie_majors, 
+                        aes(x=plate_side,y=plate_height, color = pitch_type)) + 
+  ggtitle("Rookie Batter MLB Out of Zone Swings")
+grid.arrange(plot3, plot4, nrow=1, ncol=2)
+```
+
+### Conclusion:
+
+As a recap, we are interested in investigating whether or not an adjustment period exists for prospects after being called up. From the analysis above regarding specific examples of prospects as well as prospects in general, there exists evidence that prospects on average endure some kind of adjustment period of worse decision making than in their minor league at bats. We should not expect prospects in their early major league at bats to be able to make good plate decision at the same rate as they performed in the minor leagues. In other words, we should expect a slight drop in good decision making percentage at the plate for any prospect called up during their adjustment period.
