@@ -612,3 +612,34 @@ heat_map <- function(data, var, title, binary, legend_title)
     theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5))
 }
 
+woba_heat_map_batter <- function(data, title)
+{
+  data2 <- split(data, data$p_throws)
+  woba_plot(data2, title = paste(unique(data$player_name), title))
+}
+xba_heat_map_batter <- function(data, title)
+{
+  data2 <- split(data, data$p_throws)
+  ehit_plot(data2, title = paste(unique(data$player_name), title))
+}
+xwoba_heat_map_batter <- function(data, title)
+{
+  data2 <- split(data, data$p_throws)
+  ewoba_plot(data2, title = paste(unique(data$player_name), title))
+}
+
+woba_heat_map_pitcher <- function(data, title)
+{
+  data2 <- split(data, data$stand)
+  woba_plot(data2, title = paste(unique(data$player_name), title))
+}
+xba_heat_map_pitcher <- function(data, title)
+{
+  data2 <- split(data, data$stand)
+  ehit_plot(data2, title = paste(unique(data$player_name), title))
+}
+xwoba_heat_map_pitcher <- function(data, title)
+{
+  data2 <- split(data, data$stand)
+  ewoba_plot(data2, title = paste(unique(data$player_name), title))
+}
