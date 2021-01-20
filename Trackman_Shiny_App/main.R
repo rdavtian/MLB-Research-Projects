@@ -20,4 +20,3 @@ pitchers_list$name <- as.character(interaction(pitchers_list,sep=" "))
 source("set_up_shiny.R")
 shiny <- set_up_shiny()
 shinyApp(ui = shiny[[1]], server = shiny[[2]])
-
