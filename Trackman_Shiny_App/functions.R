@@ -1,3 +1,118 @@
+add_team_names <- function(data)
+{
+  data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2019, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019])), decreasing = T)[1]), 
+                      ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2020, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020])), decreasing = T)[1]),
+                             ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]), NA_character_)))
+  #data <- data %>% 
+  #mutate(team = case_when(str_extract(data$game_date, "20[0-9][0-9]") == 2019 ~  
+  #names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019])), decreasing = T)[1]),
+  #str_extract(data$game_date, "20[0-9][0-9]") == 2020 ~ 
+  #names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020])), decreasing = T)[1]),
+  #TRUE ~ NA_character_)
+  #) %>%
+  data <- data %>%
+    mutate(team_name = case_when(team == "LAA" ~ "angels", team == "HOU" ~ "astros",
+                                 team == "OAK" ~ "athletics", team == "TOR" ~ "blue_jays",
+                                 team == "ATL" ~ "braves", team == "MIL" ~ "brewers",
+                                 team == "STL" ~ "cardinals", team == "CHC" ~ "cubs",
+                                 team == "ARI" ~ "diamondbacks", team == "LAD" ~ "dodgers",
+                                 team == "SF" ~ "giants", team == "CLE" ~ "indians",
+                                 team == "SEA" ~ "mariners", team == "MIA" ~ "marlins",
+                                 team == "NYM" ~ "mets", team == "WSH" ~ "nationals",
+                                 team == "BAL" ~ "orioles", team == "SD" ~ "padres",
+                                 team == "PHI" ~ "phillies", team == "PIT" ~ "pirates",
+                                 team == "TEX" ~ "rangers", team == "TB" ~ "rays",
+                                 team == "BOS" ~ "red_sox", team == "CIN" ~ "reds",
+                                 team == "COL" ~ "rockies", team == "KC" ~ "royals",
+                                 team == "DET" ~ "tigers", team == "MIN" ~ "twins",
+                                 team == "CWS" ~ "white_sox", TRUE ~ "yankees"),
+           home_team_name = case_when(home_team == "LAA" ~ "angels", home_team == "HOU" ~ "astros",
+                                      home_team == "OAK" ~ "athletics", home_team == "TOR" ~ "blue_jays",
+                                      home_team == "ATL" ~ "braves", home_team == "MIL" ~ "brewers",
+                                      home_team == "STL" ~ "cardinals", home_team == "CHC" ~ "cubs",
+                                      home_team == "ARI" ~ "diamondbacks", home_team == "LAD" ~ "dodgers",
+                                      home_team == "SF" ~ "giants", home_team == "CLE" ~ "indians",
+                                      home_team == "SEA" ~ "mariners", home_team == "MIA" ~ "marlins",
+                                      home_team == "NYM" ~ "mets", home_team == "WSH" ~ "nationals",
+                                      home_team == "BAL" ~ "orioles", home_team == "SD" ~ "padres",
+                                      home_team == "PHI" ~ "phillies", home_team == "PIT" ~ "pirates",
+                                      home_team == "TEX" ~ "rangers", home_team == "TB" ~ "rays",
+                                      home_team == "BOS" ~ "red_sox", home_team == "CIN" ~ "reds",
+                                      home_team == "COL" ~ "rockies", home_team == "KC" ~ "royals",
+                                      home_team == "DET" ~ "tigers", home_team == "MIN" ~ "twins",
+                                      home_team == "CWS" ~ "white_sox", TRUE ~ "yankees"))
+  return(data)
+}
+
+spray_chart_advanced_home <- function(data, title)
+{
+  chart_list <- list()
+  for (i in 1:length(unique(data$team_name)))
+  {
+    plot <- data %>% filter(home_team_name == team_name & 
+                              team_name == unique(data$team_name)[i]) %>%
+      filter(bb_type != "null") %>%
+      mutate(bb_type = as.factor(bb_type)) %>% 
+      mutate(bb_type = forcats::fct_relevel(bb_type, "Ground Ball", "Line Drive", "Fly Ball","Popup")) %>%
+      ggplot(aes(x = hc_x_, y = hc_y_, color = events, size = bb_type)) + 
+      geom_spraychart(stadium_ids = unique(data$team_name)[i],
+                      stadium_transform_coords = TRUE, 
+                      stadium_segments = "all") +
+      theme_void() + 
+      coord_fixed(ratio = 0.9) + 
+      scale_size_discrete(range = c(1,3,6,10)) +
+      labs(size = "Batted Ball Type",
+           color = "Events") +
+      ggtitle(paste(strsplit(unique(data$player_name), " ")[[1]][2],title, "-" ,unique(data$team)[i])) + 
+      theme(axis.text.x = element_blank(),axis.text.y = element_blank(),
+            axis.ticks = element_blank()) + 
+      theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold'))
+    if (i == 1 & length(unique(data$team_name)) == 2)
+    {
+      plot <- plot + theme(legend.position = "none") 
+    }
+    if ((i == 1 | i == 2) & length(unique(data$team_name)) == 3)
+    {
+      plot <- plot + theme(legend.position = "none") 
+    }
+    
+    chart_list[[i]] <- plot
+    
+  }
+  if (length(unique(data$team_name)) == 1)
+  {
+    return(chart_list[[1]])
+  }
+  if (length(unique(data$team_name)) == 2)
+  {
+    return((chart_list[[1]] | chart_list[[2]]))
+  }
+  if (length(unique(data$team_name)) == 3)
+  {
+    return((chart_list[[1]] | chart_list[[2]] | chart_list[[3]]))
+  }
+}
+
+spray_chart_advanced_generic <- function(data, title)
+{
+  data %>% filter(bb_type != "null") %>%
+    mutate(bb_type = as.factor(bb_type)) %>% 
+    mutate(bb_type = forcats::fct_relevel(bb_type, "Ground Ball", "Line Drive", "Fly Ball","Popup")) %>%
+    ggplot(aes(x = hc_x_, y = hc_y_, color = events, size = bb_type)) + 
+    geom_spraychart(stadium_ids = "generic",
+                    stadium_transform_coords = TRUE, 
+                    stadium_segments = "all") +
+    theme_void() + 
+    coord_fixed(ratio = 0.9) + 
+    scale_size_discrete(range = c(1,3,6,10)) +
+    labs(size = "Batted Ball Type",
+         color = "Events") +
+    ggtitle(paste(unique(data$player_name),title)) + 
+    theme(axis.text.x = element_blank(),axis.text.y = element_blank(),
+          axis.ticks = element_blank()) + 
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold'))
+}
+
 create_strikezone <- function()
 {
   x <- c(-.95,.95,.95,-.95,-.95)
@@ -21,12 +136,12 @@ pitch_chart_batter <- function(data, title)
          title = paste(unique(data$player_name), title)) +
     ylab("Feet Above Homeplate") +
     xlab("Feet From Homeplate (Catcher's Perspective)") +
-    theme(plot.title=element_text(hjust=0.5,vjust=0,size=12,face = 'bold'),
+    theme(plot.title=element_text(hjust=0.5,vjust=0,size=16,face = 'bold'),
           plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 8)) +
     theme(axis.text.x=element_text(vjust = .5, size=11,colour="#535353",face="bold")) +
-    theme(axis.text.y=element_text(size=11,colour="#535353",face="bold")) +
-    theme(axis.title.y=element_text(size=11,colour="#535353",face="bold",vjust=1.5)) +
-    theme(axis.title.x=element_text(size=11,colour="#535353",face="bold",vjust=0)) +
+    theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) +
+    theme(axis.title.y=element_text(size=12,colour="#535353",face="bold",vjust=1.5)) +
+    theme(axis.title.x=element_text(size=12,colour="#535353",face="bold",vjust=0)) +
     theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
     theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) +
     theme(panel.background = element_rect(fill = "white")) +
@@ -45,12 +160,12 @@ pitch_chart_pitcher <- function(data, title)
          title = paste(unique(data$player_name), title)) +
     ylab("Feet Above Homeplate") +
     xlab("Feet From Homeplate (Catcher's Perspective)") +
-    theme(plot.title=element_text(hjust=0.5,vjust=0,size=12,face = 'bold'),
+    theme(plot.title=element_text(hjust=0.5,vjust=0,size=16,face = 'bold'),
           plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 8)) +
-    theme(axis.text.x=element_text(vjust = .5, size=11,colour="#535353",face="bold")) +
-    theme(axis.text.y=element_text(size=11,colour="#535353",face="bold")) +
-    theme(axis.title.y=element_text(size=11,colour="#535353",face="bold",vjust=1.5)) +
-    theme(axis.title.x=element_text(size=11,colour="#535353",face="bold",vjust=0)) +
+    theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) +
+    theme(axis.title.y=element_text(size=12,colour="#535353",face="bold",vjust=1.5)) +
+    theme(axis.title.x=element_text(size=12,colour="#535353",face="bold",vjust=0)) +
     theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
     theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) +
     theme(panel.background = element_rect(fill = "white")) +
@@ -109,7 +224,8 @@ query_hitter <- function(Full_Name)
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
   hitter_19 <- scrape_statcast_savant(start_date = "2019-03-25", end_date = "2019-09-30", playerid = 	player_id)
   hitter_20 <- scrape_statcast_savant(start_date = "2020-03-25", end_date = "2020-09-30", playerid = 	player_id)
-  hitter <- rbind(hitter_19, hitter_20)
+  hitter_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = 	player_id)
+  hitter <- rbind(hitter_19, hitter_20, hitter_21)
   return(hitter)
 }
 
@@ -124,7 +240,8 @@ query_pitcher <- function(Full_Name)
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
   pitcher_19 <- scrape_statcast_savant(start_date = "2019-03-25", end_date = "2019-09-30", playerid = player_id, player_type = "pitcher")
   pitcher_20 <- scrape_statcast_savant(start_date = "2020-03-25", end_date = "2020-09-30", playerid = player_id, player_type = "pitcher")
-  pitcher <- rbind(pitcher_19, pitcher_20)
+  pitcher_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = player_id, player_type = "pitcher")
+  pitcher <- rbind(pitcher_19, pitcher_20, pitcher_21)
   return(pitcher)
 }
 
@@ -145,7 +262,7 @@ spray_chart <- function(data, title)
     ggtitle(paste(unique(data$player_name), title)) + 
     theme(axis.text.x = element_blank(),axis.text.y = element_blank(),
           axis.ticks = element_blank()) + 
-    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=12,face = 'bold'))
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold'))
 }
 
 pitch_arsenal <- function(data, title)
@@ -167,8 +284,8 @@ pitch_arsenal <- function(data, title)
               color = "black", size = 4.3) +
     geom_text(aes(label = paste0(prop, "%")), position = position_stack(vjust = 0.5),
               color = "black", size = 4.4) +
-    theme_void() + 
-    theme(plot.title = element_text(hjust = 0.3)) + 
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold')) + 
     labs(color = "Pitch Type",
          title = paste0(unique(data$player_name), title, " (", pitch_distr$total[1] ," Pitches)")) + 
     guides(fill=guide_legend(title="Pitch Type"))
@@ -189,7 +306,11 @@ contact_chart <- function(data, title)
                   y= (..count..)/sum(..count..)), stat= "count", vjust = -0.1, size = 6.2) +
     ggtitle(paste(unique(data$player_name), title)) + 
     scale_x_discrete(limits = limits) + 
-    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=12,face = 'bold'))
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold')) + 
+    theme(axis.text.x=element_text(vjust = .5, size=14,colour="#535353",face="bold")) + 
+    theme(axis.text.y=element_text(size=14,colour="#535353",face="bold")) + 
+    theme(axis.title.y=element_text(size=14,colour="#535353",face="bold",vjust=1.5)) + 
+    theme(axis.title.x=element_text(size=14,colour="#535353",face="bold",vjust=0))
 }
 
 pitch_velocity <- function(data, title)
@@ -204,7 +325,7 @@ pitch_velocity <- function(data, title)
     geom_density(aes(fill = pitch_name2)) + ggtitle("Distribution of Pitch Velocity by Pitch Type") +
     facet_grid(pitch_name2 ~ ., scales = 'fixed') + 
     xlab("Velocity (MPH)") + ylab("Density") + 
-    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=12,face = 'bold')) +  
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold')) +  
     labs(color = "Pitch Type",
          title = paste(unique(data$player_name), title)) + 
     guides(fill=guide_legend(title="Pitch Type")) + 
@@ -229,7 +350,7 @@ pitch_spinrate <- function(data, title)
     geom_density(aes(fill = pitch_name2)) + ggtitle("Distribution of Spin Rate by Pitch Type") +
     facet_grid(pitch_name2 ~ ., scales = 'fixed') + 
     xlab("Spin Rate (RPM)") + ylab("Density") + 
-    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=12,face = 'bold')) +  
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold')) +  
     labs(color = "Pitch Type",
          title = paste(unique(data$player_name), title)) + 
     guides(fill=guide_legend(title="Pitch Type")) + 
@@ -250,7 +371,7 @@ pitch_movement <- function(data, title)
     scale_x_continuous(breaks = round(seq(round(min(data$pfx_x, na.rm = T), -1), round(max(data$pfx_x, na.rm = T), -1), by = 5),1)) +
     scale_y_continuous(breaks = round(seq(round(min(data$pfx_z, na.rm = T), -1), round(max(data$pfx_z, na.rm = T), -1), by = 5),1)) +
     xlab("Horizontal Break (Inches) Catcher's Perspective") + ylab("Vertical Break (Inches)") + 
-    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=12,face = 'bold')) + 
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold')) + 
     labs(color = "Pitch Type",
          title = paste(unique(data$player_name), title)) + 
     guides(fill=guide_legend(title="Pitch Type")) #+ 
@@ -261,7 +382,7 @@ exit_velocity <- function(data, title)
 {
   ggplot(data, aes(x = launch_speed)) + 
     geom_density(fill = 'cyan') + 
-    ggtitle("Distribution of Exit Velocity 2019-2020") +
+    ggtitle("Distribution of Exit Velocity 2019-2021") +
     xlab("Velocity (MPH)") + ylab("Density") + 
     labs(color = "Pitch Type",
          title = paste(unique(data$player_name), title),
@@ -270,7 +391,7 @@ exit_velocity <- function(data, title)
     theme(strip.background = element_blank(),
           strip.text.y = element_blank()) + 
     geom_vline(aes(xintercept = mean(launch_speed, na.rm = T))) + 
-    theme(plot.title=element_text(hjust=0.5,vjust=0,size=12, face = 'bold'),
+    theme(plot.title=element_text(hjust=0.5,vjust=0,size=16, face = 'bold'),
           plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 9))
 }
 
@@ -450,7 +571,7 @@ pitch_usage_by_count <- function(data, title)
     scale_fill_manual(values = c("red2","black")) + 
     facet_wrap( ~ count, ncol = 3) + xlab("Pitch Type") + 
     ggtitle(paste(unique(data$player_name), title)) + ylab('Pitch Usage Rate') + 
-    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=12,face = 'bold')) + 
+    theme(plot.title = element_text(hjust = 0.5, vjust=0,size=16,face = 'bold')) + 
     scale_y_continuous(labels=scales::percent) + 
     geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.15), size = 3.5) + 
     geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.16), size = 3.5)
@@ -458,7 +579,7 @@ pitch_usage_by_count <- function(data, title)
 
 clean_statcast_data <- function(data)
 {
-  data <- data %>%
+  data <- data %>% add_team_names() %>%
     mutate(woba_value = as.numeric(woba_value),
            woba_denom = as.numeric(woba_denom),
            babip_value = as.numeric(babip_value),
@@ -497,13 +618,13 @@ clean_statcast_data <- function(data)
            made_contact = case_when(description %in% c("hit_into_play","hit_into_play_no_out",
                                                        "hit_into_play_score","foul","foul_tip","foul_bunt") ~ 1,
                                     TRUE ~ 0),
-           launch_speed_angle = case_when(launch_speed_angle == '1' ~ 'Weak',
-                                          launch_speed_angle == '2' ~ 'Topped',
-                                          launch_speed_angle == '3' ~ 'Under',
-                                          launch_speed_angle == '4' ~ 'Flare',
-                                          launch_speed_angle == '5' ~ 'Solid',
-                                          launch_speed_angle == '6' ~ 'Barrel',
-                                          TRUE ~ launch_speed_angle)) %>%
+           launch_speed_angle = case_when(launch_speed_angle == 1 ~ 'Weak',
+                                          launch_speed_angle == 2 ~ 'Topped',
+                                          launch_speed_angle == 3 ~ 'Under',
+                                          launch_speed_angle == 4 ~ 'Flare',
+                                          launch_speed_angle == 5 ~ 'Solid',
+                                          launch_speed_angle == 6 ~ 'Barrel',
+                                          TRUE ~ as.character(launch_speed_angle))) %>%
     mutate(pitch_name2 = case_when(pitch_name %in% c("4-Seam Fastball","2-Seam Fastball","Split-Finger") ~ 'Fastball',
                                    pitch_name %in% c("Curveball","Knuckle Curve") ~ 'Curveball',
                                    pitch_name == 'Slider' ~ 'Slider',
@@ -554,6 +675,11 @@ clean_statcast_data <- function(data)
                                 launch_speed < 95 ~ 0,
                                 TRUE ~ launch_speed),
            hard_hit = as.numeric(hard_hit)) %>%
+    mutate(hc_x_ = 2.495671 * (hc_x - 125),
+           hc_y_ = 2.495671 * (199 - hc_y)) %>%
+    mutate(first_name = str_squish(strsplit(player_name, split = ",")[[1]][2]),
+           last_name = str_squish(strsplit(player_name, split = ",")[[1]][1])) %>% 
+    tidyr::unite(player_name, c("first_name", "last_name"), sep = " ") %>%
     mutate(x = hc_x - 125.42, 
            y = 198.27 - hc_y,
            phi = (180 * atan(x/y)) / pi, # 100 * atan(x/y),
@@ -604,10 +730,10 @@ heat_map <- function(data, var, title, binary, legend_title)
     # unlist(strsplit(unique(data$player_name), " "))[2]
     xlab("Feet From Homeplate (Catcher's Perspective)") + 
     ylab("Feet Above Homeplate") + xlim(-1.5, 1.5) + centertitle() + 
-    theme(axis.text.x=element_text(vjust = .5, size=11,colour="#535353",face="bold")) +
-    theme(axis.text.y=element_text(size=11,colour="#535353",face="bold")) + 
-    theme(axis.title.y=element_text(size=11,colour="#535353",face="bold",vjust=1.5)) +
-    theme(axis.title.x=element_text(size=11,colour="#535353",face="bold",vjust=0)) +
+    theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) + 
+    theme(axis.title.y=element_text(size=12,colour="#535353",face="bold",vjust=1.5)) +
+    theme(axis.title.x=element_text(size=12,colour="#535353",face="bold",vjust=0)) +
     theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
     theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5))
 }
