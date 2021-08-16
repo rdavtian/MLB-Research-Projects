@@ -1,8 +1,53 @@
 lgwoba <- 0.713
+fip_c <- 3.172
+
+rv_non_bip <- CalledStrike::count_values[1:12,]
+names(rv_non_bip) <- c("count","rvnon_bip")
+
+rv_bip <- CalledStrike::count_values[13:nrow(CalledStrike::count_values),]
+names(rv_bip) <- c("events","rvbip")
+rv_bip <- rv_bip %>% 
+  mutate(events = stringr::str_replace_all(events, "_", " "),
+         events = stringr::str_to_title(events),
+         events = case_when(events == "Hit By Pitch" ~ "HBP",
+                            events == "Field Error" ~ "Error",
+                            events == "Strikeout" ~ "Strike Out",
+                            TRUE ~ events))
+
+
 add_team_names <- function(data)
 {
   
-  data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]))
+  if (end_year - start_year == 0)
+  {
+    data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_)
+  }
+  else if (end_year - start_year == 1)
+  {
+    data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]),
+    ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_))
+  }
+  else if (end_year - start_year == 2) {
+    data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]), 
+    ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1])), decreasing = T)[1]),
+    ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_)))
+  }
+  else if (end_year - start_year == 3) {
+    data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]), 
+                        ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1])), decreasing = T)[1]),
+                               ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2])), decreasing = T)[1]),
+                               ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_))))
+  } else {
+    
+    data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]), 
+                        ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1])), decreasing = T)[1]),
+                               ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2])), decreasing = T)[1]),
+                                      ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 3, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 3], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 3])), decreasing = T)[1]),
+                                      ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_)))))
+    
+  }
+  
+  #data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]))
   
   #data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2020, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020])), decreasing = T)[1]),
                       #ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]), NA_character_))
@@ -127,8 +172,8 @@ spray_chart_advanced_generic <- function(data, title)
 }
 create_strikezone <- function()
 {
-  x <- c(-.95,.95,.95,-.95,-.95)
-  z <- c(1.5,1.5,3.5,3.5,1.5)
+  x <- c(-.9,.9,.9,-.9,-.9)
+  z <- c(1.55,1.55,3.5,3.5,1.55)
   sz <- as.data.frame(tibble(x,z)) 
   g <- ggplot() + geom_path(data = sz, aes(x=x, y=z), lwd = 1.5) +
     coord_equal() + xlab("feet from home plate") +
@@ -136,7 +181,7 @@ create_strikezone <- function()
   return(g)
 }
 
-pitch_chart_batter <- function(data, title, hits = FALSE)
+pitch_chart_batter <- function(data, title, hits = FALSE, outs = FALSE)
 {
   update_geom_defaults("point",list(size=4))
   zone <- create_strikezone()
@@ -148,6 +193,15 @@ pitch_chart_batter <- function(data, title, hits = FALSE)
       mutate(events = forcats::fct_relevel(events,"Single","Double","Triple","Home Run"))
     
     plot <- zone + geom_point(data = data, aes(x = plate_x, y = plate_z, size = as.factor(events), color = pitch_name2)) + 
+      labs(size = "Event", color = "Pitch Type",
+           title = paste(unique(data$player_name), title)) + 
+      scale_size_discrete(range = c(2,5,9,14))
+    
+  } else if (outs == TRUE) {
+    data2 <- data %>% filter(events != "Strike Out")
+    #mutate(events = forcats::fct_relevel(events,"Single","Double","Triple","Home Run"))
+    
+    plot <- zone + geom_point(data = data2, aes(x = plate_x, y = plate_z, size = as.factor(events), color = pitch_name2)) + 
       labs(size = "Event", color = "Pitch Type",
            title = paste(unique(data$player_name), title)) + 
       scale_size_discrete(range = c(2,5,9,14))
@@ -177,7 +231,7 @@ pitch_chart_batter <- function(data, title, hits = FALSE)
           strip.background = element_rect(fill="lightblue", colour="black",size=1))
 }
 
-pitch_chart_pitcher <- function(data, title, hits = FALSE)
+pitch_chart_pitcher <- function(data, title, hits = FALSE, outs = FALSE)
 {
   update_geom_defaults("point",list(size=4))
   zone <- create_strikezone()
@@ -193,7 +247,16 @@ pitch_chart_pitcher <- function(data, title, hits = FALSE)
            title = paste(unique(data$player_name), title)) + 
       scale_size_discrete(range = c(2,5,9,14))
     
-  } else{
+  } else if (outs == TRUE) {
+    data2 <- data %>% filter(events != "Strike Out")
+      #mutate(events = forcats::fct_relevel(events,"Single","Double","Triple","Home Run"))
+    
+    plot <- zone + geom_point(data = data2, aes(x = plate_x, y = plate_z, size = as.factor(events), color = pitch_name2)) + 
+      labs(size = "Event", color = "Pitch Type",
+           title = paste(unique(data$player_name), title)) + 
+      scale_size_discrete(range = c(2,5,9,14))
+    
+  } else {
     plot <- zone + geom_point(data = data, aes(x = plate_x, y = plate_z, size = release_speed, color = pitch_name2)) + 
       labs(size = "Pitch Speed", color = "Pitch Type",
            title = paste(unique(data$player_name), title)) + 
@@ -221,14 +284,19 @@ pitch_chart_pitcher_first_pitch <- function(data, title)
 {
   update_geom_defaults("point",list(size=4))
   zone <- create_strikezone()
-  data <- data %>% filter(pitch_name2 != 'null', count == "0-0")
-  zone + geom_point(data = data, aes(x = plate_x, y = plate_z, size = release_speed, color = pitch_name2)) +
-    scale_size(range = c(1,3.8)) +
+  data2 <- data %>% filter(pitch_name2 != 'null', count == "0-0") %>% 
+    mutate(events3 = case_when(events %in% c("Single","Double","Triple","Home Run") ~ "Hit",
+                               description %in% c("ball","blocked_ball") ~ "Ball", 
+                               events %in% c("Field Out","Sac Bunt","Double Play","Force Out") ~ "Out",
+                               description %in% c("foul_tip","foul_bunt","foul","swinging_stike","swinging_strike_blocked","called_strike") ~ "Called/Swinging Strike/Foul")) %>%
+    mutate(events3 = forcats::fct_relevel(events3,"Out","Called/Swinging Strike/Foul","Ball","Hit")) %>% 
+    filter(!is.na(events3))
+  zone + geom_point(data = data2, aes(x = plate_x, y = plate_z, size = as.factor(events3), color = pitch_name2)) +
     #viridis::scale_color_viridis(discrete = TRUE, option = "C") +
     guides(colour = guide_legend(override.aes = list(size=3))) + 
-    labs(size = "Pitch Speed",
-         color = "Pitch Type",
-         title = paste(unique(data$player_name), title)) +
+    labs(size = "Event", color = "Pitch Type",
+         title = paste(unique(data$player_name), title)) + 
+    scale_size_discrete(range = c(2,5,9,14)) + 
     ylab("Feet Above Homeplate") +
     xlab("Feet From Homeplate (Pitcher's Perspective)") +
     theme(plot.title=element_text(hjust=0.5,vjust=0,size=17,face = 'bold'),
@@ -244,19 +312,23 @@ pitch_chart_pitcher_first_pitch <- function(data, title)
     theme(strip.text = element_text(face="bold", size=13),
           strip.background = element_rect(fill="lightblue", colour="black",size=1))
 }
-
 pitch_chart_pitcher_behind <- function(data, title)
 {
   update_geom_defaults("point",list(size=4))
   zone <- create_strikezone()
-  data <- data %>% filter(pitch_name2 != 'null', count %in% c("1-0","2-0","3-0","2-1","3-1"))
-  zone + geom_point(data = data, aes(x = plate_x, y = plate_z, size = release_speed, color = pitch_name2)) +
-    scale_size(range = c(1,3.8)) +
+  data2 <- data %>% filter(pitch_name2 != 'null', count %in% c("1-0","2-0","3-0","2-1","3-1")) %>% 
+    mutate(events3 = case_when(events %in% c("Single","Double","Triple","Home Run") ~ "Hit",
+                               description %in% c("ball","blocked_ball") ~ "Ball", 
+                               events %in% c("Field Out","Sac Bunt","Double Play","Force Out") ~ "Out",
+                               description %in% c("foul_tip","foul_bunt","foul","swinging_stike","swinging_strike_blocked","called_strike") ~ "Called/Swinging Strike/Foul")) %>%
+    mutate(events3 = forcats::fct_relevel(events3,"Out","Called/Swinging Strike/Foul","Ball","Hit")) %>% 
+    filter(!is.na(events3))
+  zone + geom_point(data = data2, aes(x = plate_x, y = plate_z, size = as.factor(events3), color = pitch_name2)) +
     #viridis::scale_color_viridis(discrete = TRUE, option = "C") +
     guides(colour = guide_legend(override.aes = list(size=3))) + 
-    labs(size = "Pitch Speed",
-         color = "Pitch Type",
-         title = paste(unique(data$player_name), title)) +
+    labs(size = "Event", color = "Pitch Type",
+         title = paste(unique(data$player_name), title)) + 
+    scale_size_discrete(range = c(2,5,9,14)) + 
     ylab("Feet Above Homeplate") +
     xlab("Feet From Homeplate (Pitcher's Perspective)") +
     theme(plot.title=element_text(hjust=0.5,vjust=0,size=17,face = 'bold'),
@@ -277,14 +349,17 @@ pitch_chart_density <- function(data, title)
 {
   update_geom_defaults("point",list(size=2))
   zone <- create_strikezone()
-  data2 <- data %>% filter(pitch_name2 != 'null') 
+  data2 <- data %>% filter(pitch_name2 != 'null') %>%
+    group_by(pitch_name2) %>% 
+    mutate(n = n(),
+           label = paste0(unique(pitch_name2), " (N = ", unique(n), ")"))
   zone + geom_density_2d_filled(data = data2, aes(x = plate_x, y = plate_z), alpha = 0.6, contour_var = "ndensity", bins = 9) +
     scale_fill_brewer(type = "seq", palette = "YlOrRd", direction = 1) + 
     labs(color = "Density",
          title = paste(unique(data2$player_name), title)) + 
     ylab("Feet Above Homeplate") +
     xlab("Feet From Homeplate (Pitcher's Perspective)") +
-    theme(plot.title=element_text(hjust=0.5,vjust=0,size=17,face = 'bold'),
+    theme(plot.title=element_text(hjust=0.5,vjust=0,size=20,face = 'bold'),
           plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 9)) +
     theme(axis.text.x=element_text(vjust = .5, size=13,colour="#535353",face="bold")) +
     theme(axis.text.y=element_text(size=13,colour="#535353",face="bold")) +
@@ -293,7 +368,7 @@ pitch_chart_density <- function(data, title)
     theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
     theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) +
     theme(panel.background = element_rect(fill = "white")) +
-    facet_wrap(~ pitch_name2, nrow = 1) + theme(legend.position = "none") + 
+    facet_wrap(~ label, nrow = 1) + theme(legend.position = "none") + 
     theme(strip.text = element_text(face="bold", size=13),
           strip.background = element_rect(fill="lightblue", colour="black",size=1))
 }
@@ -343,14 +418,19 @@ pitch_chart_pitcher_ahead <- function(data, title)
 {
   update_geom_defaults("point",list(size=4))
   zone <- create_strikezone()
-  data <- data %>% filter(pitch_name2 != 'null', count %in% c("0-1","0-2","1-2","2-2"))
-  zone + geom_point(data = data, aes(x = plate_x, y = plate_z, size = release_speed, color = pitch_name2)) +
-    scale_size(range = c(1,3.8)) +
+  data2 <- data %>% filter(pitch_name2 != 'null', count %in% c("0-1","0-2","1-2","2-2")) %>% 
+    mutate(events3 = case_when(events %in% c("Single","Double","Triple","Home Run") ~ "Hit",
+                               description %in% c("ball","blocked_ball") ~ "Ball", 
+                               events %in% c("Field Out","Sac Bunt","Double Play","Force Out") ~ "Out",
+                               description %in% c("foul_tip","foul_bunt","foul","swinging_stike","swinging_strike_blocked","called_strike") ~ "Called/Swinging Strike/Foul")) %>%
+    mutate(events3 = forcats::fct_relevel(events3,"Out","Called/Swinging Strike/Foul","Ball","Hit")) %>% 
+    filter(!is.na(events3))
+  zone + geom_point(data = data2, aes(x = plate_x, y = plate_z, size = as.factor(events3), color = pitch_name2)) +
     #viridis::scale_color_viridis(discrete = TRUE, option = "C") +
     guides(colour = guide_legend(override.aes = list(size=3))) + 
-    labs(size = "Pitch Speed",
-         color = "Pitch Type",
-         title = paste(unique(data$player_name), title)) +
+    labs(size = "Event", color = "Pitch Type",
+         title = paste(unique(data$player_name), title)) + 
+    scale_size_discrete(range = c(2,5,9,14)) + 
     ylab("Feet Above Homeplate") +
     xlab("Feet From Homeplate (Pitcher's Perspective)") +
     theme(plot.title=element_text(hjust=0.5,vjust=0,size=17,face = 'bold'),
@@ -410,38 +490,81 @@ of_shift_usage <- function(data, title)
 
 query_hitter <- function(Full_Name)
 {
-  First_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[1]
-  First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
-  Last_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[2]
-  Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
+  {
+    First_Name <- str_c(strsplit(Full_Name, split = " ")[[1]][1:2], collapse = " ")
+    First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
+    Last_Name <- strsplit(Full_Name, split = " ")[[1]][3]
+    Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  } else {
+    First_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[1]
+    First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
+    Last_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[2]
+    Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  }
   #index <- as.numeric(rownames(hitters_list[(hitters_list$Last == Last_Name) & hitters_list$First == First_Name,]))
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
+  
+  hitter_year <- list()
+  for (year in start_year:end_year)
+  {
+    hitter_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(year, "-03-25"), end_date = paste0(year, "-10-01"), playerid = player_id)
+  }
+  hitter_sc <- do.call(rbind, hitter_year)
   #hitter_19 <- scrape_statcast_savant(start_date = "2019-03-25", end_date = "2019-09-30", playerid = 	player_id)
   #hitter_20 <- scrape_statcast_savant(start_date = "2020-03-25", end_date = "2020-09-30", playerid = 	player_id)
-  hitter_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = 	player_id)
+  #hitter_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = 	player_id)
   #hitter <- rbind(hitter_19, hitter_20, hitter_21)
   #hitter <- rbind(hitter_20, hitter_21)
-  hitter <- rbind(hitter_21)
-  return(hitter)
+  #hitter <- rbind(hitter_21)
+  return(hitter_sc)
 }
 
 query_pitcher <- function(Full_Name)
 {
-  First_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[1]
-  First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
-  Last_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[2]
-  Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  if (Full_Name == "Daniel Ponce de")
+  {
+    First_Name_Clean <- "Daniel"
+    Last_Name_Clean <- "Ponce de Leon"
+  } else if (Full_Name == "Kwang-hyun Kim")
+  {
+    First_Name_Clean <- "Kwang Hyun"
+    Last_Name_Clean <- "Kim"
+  } else if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
+  {
+    First_Name <- str_c(strsplit(Full_Name, split = " ")[[1]][1:2], collapse = " ")
+    First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
+    Last_Name <- strsplit(Full_Name, split = " ")[[1]][3]
+    Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+    
+  } else {
+    First_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[1]
+    First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
+    Last_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[2]
+    Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  }
   #index <- as.numeric(rownames(pitchers_list[(pitchers_list$Last == Last_Name) & pitchers_list$First == First_Name,]))
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
+  if (player_id[1] == 671277)
+  {
+    player_id <- player_id[2]
+  }
+  
+  pitcher_year <- list()
+  for (year in start_year:end_year)
+  {
+    pitcher_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(year, "-03-25"), end_date = paste0(year, "-10-01"), playerid = 	player_id, player_type = "pitcher")
+  }
+  pitcher_sc <- do.call(rbind, pitcher_year)
   #pitcher_19 <- scrape_statcast_savant(start_date = "2019-03-25", end_date = "2019-09-30", playerid = player_id, player_type = "pitcher")
   #pitcher_20 <- scrape_statcast_savant(start_date = "2020-03-25", end_date = "2020-09-30", playerid = player_id, player_type = "pitcher")
-  pitcher_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = player_id, player_type = "pitcher")
+  #pitcher_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = player_id, player_type = "pitcher")
   #pitcher <- rbind(pitcher_19, pitcher_20, pitcher_21)
   #pitcher <- rbind(pitcher_20, pitcher_21)
-  pitcher <- rbind(pitcher_21)
-  return(pitcher)
+  #pitcher <- rbind(pitcher_21)
+  return(pitcher_sc)
 }
 
 spray_chart <- function(data, title)
@@ -600,7 +723,7 @@ exit_velocity <- function(data, title)
   max_ls <- max(data$launch_speed, na.rm = T)
   ggplot(data, aes(x = launch_speed)) + 
     geom_density(fill = 'cyan') + 
-    ggtitle("Distribution of Exit Velocity 2019-2021") +
+    ggtitle(paste0("Distribution of Exit Velocity ", start_year, "-", end_year)) +
     xlab("Velocity (MPH)") + ylab("Density") + 
     labs(color = "Pitch Type",
          title = paste(unique(data$player_name), title),
@@ -723,13 +846,14 @@ batter_basic_stats <- function(data, title)
               OPS = OBP + SLG, 
               OPS_plus = round(100*(OPS / lgwoba)),
               wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
+              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
               HR = sum(events == "Home Run"),
               K = sum(events == "Strike Out"),
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
               .groups = 'drop') %>%
-    select(PA, AB, BA, OBP, SLG, OPS, OPS_plus, wOBA, HR, H, K, K., BB, BB.) %>%
+    select(PA, AB, BA, OBP, SLG, OPS, OPS_plus, wOBA, BABIP, HR, H, K, K., BB, BB.) %>%
     distinct() %>% 
     rename("BB%" = "BB.", "K%" = "K.", "OPS+" = "OPS_plus")
   
@@ -751,7 +875,7 @@ batter_stats <- function(data, title)
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
-              BABIP = round(H / BIP, 3),
+              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
               wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
               xwOBA = round(mean(estimated_woba_using_speedangle[events %!in% c("Walk","Strike Out","HBP")]),3),
@@ -781,7 +905,7 @@ pitcher_stats <- function(data, title)
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
-              BABIP = round(H / BIP, 3),
+              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
               wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
               xwOBA = round(mean(estimated_woba_using_speedangle[events %!in% c("Strike Out","Walk","HBP")]),3),
@@ -803,13 +927,18 @@ pitcher_stats <- function(data, title)
 pitcher_basic_stats <- function(data, title)
 {
   IP <- data %>%
-    mutate(inning2 = case_when(outs_when_up == 0 ~ inning - 1,
-                               outs_when_up == 1 ~ (inning - 1) + (1/3),
-                               TRUE ~ inning)) %>%
-    tidyr::unite(inning3, inning, outs_when_up, sep = ".", remove = FALSE) %>%
+    select(game_date, outs_when_up, inning) %>% distinct() %>%
     group_by(game_date) %>% 
-    summarise(IP = n_distinct(inning3) / 3, .groups = "drop") %>% 
-    ungroup() %>% select(IP) %>% pull() %>% sum()
+    summarise(n = n() / 3, .groups = "drop") %>% select(n) %>% sum()
+  #IP <- data %>% dplyr::select(game_date, outs_when_up, inning) %>% distinct() %>% nrow() / 3
+  #IP <- data %>%
+    #mutate(inning2 = case_when(outs_when_up == 0 ~ inning - 1,
+                               #outs_when_up == 1 ~ (inning - 1) + (1/3),
+                               #TRUE ~ inning)) %>%
+    #tidyr::unite(inning3, inning, outs_when_up, sep = ".", remove = FALSE) %>%
+    #group_by(game_date) %>% 
+    #summarise(IP = n_distinct(inning3) / 3, .groups = "drop") %>% 
+    #ungroup() %>% select(IP) %>% pull() %>% sum()
   
   ERA <- data %>%
     group_by(game_date) %>% 
@@ -839,10 +968,12 @@ pitcher_basic_stats <- function(data, title)
               WHIP = round((BB + H) / IP,3),
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
-              BABIP = round((H - HR) / (AB - HR - K + SF),3),
+              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
               wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
               xwOBA = round(mean(estimated_woba_using_speedangle[events %!in% c("Strike Out","Walk","HBP")]),3),
+              FIP = round(((13*HR + 3*(BB + HBP) - 2*K) / (IP)) + fip_c,2),
+              FIPer = round(((13*HR + 3*(BB + HBP) - 2*K) / (HR + BB + K)) + fip_c,2),
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
               K_per9 = round((K / IP) * 9, 2),
@@ -850,7 +981,7 @@ pitcher_basic_stats <- function(data, title)
               HR_per9 = round((HR / IP) * 9,2),
               hard_hit_rate = round(mean(hard_hit[events %!in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(IP, ERA, BA, wOBA, BABIP, K_per9, K., BB_per9, BB., HR_per9, WHIP, hard_hit_rate) %>%
+    select(IP, ERA, FIP, FIPer, BA, wOBA, BABIP, K_per9, K., BB_per9, BB., HR_per9, WHIP, hard_hit_rate) %>%
     rename("BB%" = "BB.", "K%" = "K.","Hard Hit %" = "hard_hit_rate", "K/9" = "K_per9", 
            "BB/9" = "BB_per9", "HR/9" = "HR_per9") 
   
@@ -904,13 +1035,13 @@ pitch_usage_by_count <- function(data, title)
     ggtitle(paste(unique(data$player_name), title)) + ylab('Pitch Usage Rate') + 
     theme(plot.title = element_text(hjust = 0.5, vjust=0,size=17,face = 'bold')) + 
     scale_y_continuous(labels=scales::percent) + 
-    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.15), size = 3.5) + 
-    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.16), size = 3.5) + 
-    theme(axis.text.x=element_text(vjust = .5, size=15,colour="#535353",face="bold")) + 
-    theme(axis.text.y=element_text(size=15,colour="#535353",face="bold")) + 
+    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.1), size = 3.5) + 
+    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.11), size = 3.5) + 
+    theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) + 
+    theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) + 
     theme(axis.title.y=element_text(size=15,colour="#535353",face="bold",vjust=1.5)) + 
     theme(axis.title.x=element_text(size=15,colour="#535353",face="bold",vjust=0)) + 
-    theme(strip.text = element_text(face="bold", size=10),
+    theme(strip.text = element_text(face="bold", size=11),
           strip.background = element_rect(fill="lightblue", colour="black"))
 }
 
@@ -945,7 +1076,7 @@ spin_direction_leaderboard <- function(data, num_pitches, pitch_type = "ALL",thr
   return(payload)
 }
 
-plot_spin_axis <- function(data)
+plot_spin_axis <- function(data, date1, date2)
 {
   spin_dir <- spin_direction_leaderboard(data, num_pitches = 1, team = unique(data$team))
   spin_dir <- spin_dir %>% 
@@ -976,11 +1107,11 @@ plot_spin_axis <- function(data)
                                       breaks = seq(0, 12, by = 1),
                                       minor_breaks = seq(0, 12, by = .50)) + 
     ylab("Frequency") + xlab("Spin Direction") + scale_fill_discrete(name = "Pitch Type") + 
-    ggtitle(paste(unique(data$player_name), "Measured Spin Direction 2021")) + 
+    ggtitle(paste0(unique(data$player_name), " Measured Spin Direction ", date1, "-", date2)) + 
     theme(plot.title=element_text(hjust=0.5,vjust=0,size=15,face = 'bold'),
           plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 9)) +
-    theme(axis.text.x=element_text(vjust = .5, size=13,colour="#535353",face="bold")) +
-    theme(axis.text.y=element_text(size=13,colour="#535353",face="bold")) +
+    theme(axis.text.x=element_text(vjust = .5, size=15,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=15,colour="#535353",face="bold")) +
     theme(axis.title.y=element_text(size=15,colour="#535353",face="bold",vjust=1.5)) +
     theme(axis.title.x=element_text(size=15,colour="#535353",face="bold",vjust=0)) +
     theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
@@ -1002,11 +1133,11 @@ plot_spin_axis <- function(data)
                                       breaks = seq(0, 12, by = 1),
                                       minor_breaks = seq(0, 12, by = .5)) + 
     ylab("Frequency") + xlab("Spin Direction") + scale_fill_discrete(name = "Pitch Type") + 
-    ggtitle(paste(unique(data$player_name), "Observed Spin Direction 2021")) + 
+    ggtitle(paste0(unique(data$player_name), " Observed Spin Direction ", date1, "-", date2)) + 
     theme(plot.title=element_text(hjust=0.5,vjust=0,size=15,face = 'bold'),
           plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 9)) +
-    theme(axis.text.x=element_text(vjust = .5, size=13,colour="#535353",face="bold")) +
-    theme(axis.text.y=element_text(size=13,colour="#535353",face="bold")) +
+    theme(axis.text.x=element_text(vjust = .5, size=15,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=15,colour="#535353",face="bold")) +
     theme(axis.title.y=element_text(size=15,colour="#535353",face="bold",vjust=1.5)) +
     theme(axis.title.x=element_text(size=15,colour="#535353",face="bold",vjust=0)) +
     theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
@@ -1059,7 +1190,9 @@ release_position <- function(data, title)
 
 clean_statcast_data <- function(data)
 {
-  data <- data %>% add_team_names() %>%
+  data <- data %>% 
+    filter(pitch_name != "Intentional Ball", pitch_name != "Pitch Out") %>%
+    add_team_names() %>%
     mutate(plate_x = -plate_x, 
            woba_value = as.numeric(woba_value),
            woba_denom = as.numeric(woba_denom),
@@ -1083,6 +1216,16 @@ clean_statcast_data <- function(data)
                              (balls == 3 & strikes == 1) ~ "3-1",
                              (balls == 3 & strikes == 2) ~ "3-2"),
            count = as.factor(count),
+           base_state = case_when(is.na(on_1b) & is.na(on_2b) & is.na(on_3b) ~ "Bases Cleared",
+                                  !is.na(on_1b) & is.na(on_2b) & is.na(on_3b) ~ "1st Only",
+                                  is.na(on_1b) & !is.na(on_2b) & is.na(on_3b) ~ "2nd Only",
+                                  !is.na(on_1b) & !is.na(on_2b) & is.na(on_3b) ~ "1st and 2nd",
+                                  is.na(on_1b) & is.na(on_2b) & !is.na(on_3b) ~ "3rd Only",
+                                  !is.na(on_1b) & is.na(on_2b) & !is.na(on_3b) ~ "1st and 3rd",
+                                  is.na(on_1b) & !is.na(on_2b) & !is.na(on_3b) ~ "2nd and 3rd",
+                                  !is.na(on_1b) & !is.na(on_2b) & !is.na(on_3b) ~ "Bases Loaded",
+                                  TRUE ~ NA_character_),
+           base_state = as.factor(base_state),
            is_hit = case_when(events %in% c("single","double","triple","home_run") ~ 1,
                               TRUE ~ 0),
            is_hr = case_when(events == "home_run" ~ 1, TRUE ~ 0),
@@ -1174,9 +1317,9 @@ clean_statcast_data <- function(data)
 heat_map <- function(data, var, title, binary, legend_title)
 {
   topKzone <- 3.5
-  botKzone <- 1.5
-  inKzone <- -0.95
-  outKzone <- 0.95
+  botKzone <- 1.55
+  inKzone <- -0.9
+  outKzone <- 0.9
   kZone <- data.frame(
     x=c(inKzone, inKzone, outKzone, outKzone, inKzone),
     y=c(botKzone, topKzone, topKzone, botKzone, botKzone))
@@ -1184,8 +1327,8 @@ heat_map <- function(data, var, title, binary, legend_title)
   if (binary)
   {
     fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z)")), family = binomial, data=data)
-    x <- seq(-1.5, 1.5, length.out=50)
-    y <- seq(0.5, 5, length.out=50)
+    x <- seq(-1.7, 1.7, length.out=50)
+    y <- seq(0.5, 4.5, length.out=50)
     data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
                                plate_z = c(outer(x * 0 + 1, y)))
     lp <- predict(fit, data.predict)
@@ -1193,8 +1336,8 @@ heat_map <- function(data, var, title, binary, legend_title)
   }
   else{
     fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z)")), data=data)
-    x <- seq(-1.5, 1.5, length.out=50)
-    y <- seq(0.5, 5, length.out=50)
+    x <- seq(-1.7, 1.7, length.out=50)
+    y <- seq(0.5, 4.5, length.out=50)
     data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
                                plate_z = c(outer(x * 0 + 1, y)))
     lp <- predict(fit, data.predict)
@@ -1208,17 +1351,21 @@ heat_map <- function(data, var, title, binary, legend_title)
     #scale_fill_distiller(palette = "Spectral", limits = c(min, max)) +
     #geom_path(lwd=1.5, col="black") +
     add_zone("black") + 
-    coord_fixed() + ylim(1,4) + labs(fill = legend_title) + 
+    coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
     ggtitle(paste(unique(data$player_name), title)) + 
     # unlist(strsplit(unique(data$player_name), " "))[2]
     xlab("Feet From Homeplate (Pitcher's Perspective)") + 
-    ylab("Feet Above Homeplate") + xlim(-1.5, 1.5) + centertitle() + 
+    ylab("Feet Above Homeplate") + xlim(-1.7, 1.7) + centertitle() + 
+    theme(panel.background = element_rect(fill = "white")) +
+    theme(plot.title = element_text(color = "black", face = "bold", size = 18)) + 
     theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) +
     theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) + 
     theme(axis.title.y=element_text(size=12,colour="#535353",face="bold",vjust=1.5)) +
     theme(axis.title.x=element_text(size=12,colour="#535353",face="bold",vjust=0)) +
     theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
-    theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5))
+    theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) + 
+    theme(strip.text = element_text(face="bold", size=13),
+          strip.background = element_rect(fill="lightblue", colour="black",size=1))
 }
 
 woba_heat_map_batter <- function(data, title)
@@ -1251,4 +1398,145 @@ xwoba_heat_map_pitcher <- function(data, title)
 {
   data2 <- split(data, data$stand)
   ewoba_plot(data2, title = paste(unique(data$player_name), title))
+}
+
+heat_map_rv <- function(data, title, legend_title)
+{
+  data <- find_run_value(data)
+  topKzone <- 3.5
+  botKzone <- 1.55
+  inKzone <- -0.9
+  outKzone <- 0.9
+  kZone <- data.frame(
+    x=c(inKzone, inKzone, outKzone, outKzone, inKzone),
+    y=c(botKzone, topKzone, topKzone, botKzone, botKzone))
+  control <- caret::trainControl(method = "cv", number = 5)
+  fit <- caret::train(rv ~ plate_x + plate_z + pitch_name2, data = data, method = "knn", 
+                      metric = "RMSE", trControl = control, tuneLength = 25)
+  #print(fit)
+  pitch_types = unique(data$pitch_name2)
+  predict.data <- list()
+  x <- seq(-1.7, 1.7, length.out=30)
+  y <- seq(0.5, 4.5, length.out=30)
+  for (i in 1:length(pitch_types))
+  {
+    predict.data[[i]] <- data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
+                                                    plate_z = c(outer(x * 0 + 1, y)),
+                                                    pitch_name2 = pitch_types[i])
+  }
+  data.predict <- do.call(rbind, predict.data)
+  lp <- predict(fit, data.predict)
+  data.predict$RV <- lp
+    
+
+  ggplot(kZone, aes(x, y)) +
+    geom_tile(data=data.predict, 
+              aes(plate_x, plate_z, fill = RV)) +
+    scale_fill_distiller(palette = "Spectral") +
+    add_zone("black") + 
+    coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
+    ggtitle(paste(unique(data$player_name), title)) + 
+    xlab("Feet From Homeplate (Pitcher's Perspective)") + 
+    ylab("Feet Above Homeplate") + xlim(-1.7, 1.7) + centertitle() + 
+    theme(panel.background = element_rect(fill = "white")) +
+    theme(plot.title = element_text(color = "black", face = "bold", size = 18)) + 
+    theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) + 
+    theme(axis.title.y=element_text(size=12,colour="#535353",face="bold",vjust=1.5)) +
+    theme(axis.title.x=element_text(size=12,colour="#535353",face="bold",vjust=0)) +
+    theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
+    theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) + 
+    theme(strip.text = element_text(face="bold", size=13),
+          strip.background = element_rect(fill="lightblue", colour="black",size=1)) + 
+    facet_grid(~ pitch_name2)
+}
+
+heat_map_rv2 <- function(data, title, legend_title)
+{
+  data2 <- find_run_value(data)
+  data2 <- data2 %>% 
+    group_by(pitch_name2) %>% 
+    mutate(num_pitches = n()) %>% 
+    filter(num_pitches > 20) %>% 
+    ungroup()
+  unique_pitches <- unique(data2$pitch_name2)
+  topKzone <- 3.5
+  botKzone <- 1.55
+  inKzone <- -0.9
+  outKzone <- 0.9
+  kZone <- data.frame(
+    x=c(inKzone, inKzone, outKzone, outKzone, inKzone),
+    y=c(botKzone, topKzone, topKzone, botKzone, botKzone))
+  x <- seq(-1.7, 1.7, length.out=50)
+  y <- seq(0.5, 4.5, length.out=50)
+  
+  full_predict_df <- list()
+  for (i in 1:length(unique_pitches))
+  {
+    data3 <- data2 %>% filter(pitch_name2 == unique_pitches[i])
+    fit <- gam(rv ~ s(plate_x, plate_z), data=data3)
+    data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
+                               plate_z = c(outer(x * 0 + 1, y)))
+    data.predict$RV <- predict(fit, data.predict)
+    data.predict$pitch_name2 <- unique_pitches[i]
+    full_predict_df[[i]] <- data.predict
+  }
+  df <- do.call(rbind, full_predict_df)
+  
+  ggplot(kZone, aes(x, y)) +
+    geom_tile(data=df, 
+              aes(plate_x, plate_z, fill = RV)) +
+    scale_fill_distiller(palette = "Spectral") +
+    add_zone("black") + 
+    coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
+    ggtitle(paste(unique(data$player_name), title)) + 
+    xlab("Feet From Homeplate (Pitcher's Perspective)") + 
+    ylab("Feet Above Homeplate") + xlim(-1.7, 1.7) + centertitle() + 
+    theme(panel.background = element_rect(fill = "white")) +
+    theme(plot.title = element_text(color = "black", face = "bold", size = 18)) + 
+    theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) + 
+    theme(axis.title.y=element_text(size=12,colour="#535353",face="bold",vjust=1.5)) +
+    theme(axis.title.x=element_text(size=12,colour="#535353",face="bold",vjust=0)) +
+    theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
+    theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) + 
+    theme(strip.text = element_text(face="bold", size=13),
+          strip.background = element_rect(fill="lightblue", colour="black",size=1)) +
+    facet_grid(~ pitch_name2)
+}
+
+find_run_value <- function(data)
+{
+  data2 <- data %>%
+    mutate(count_after = lag(count)) %>% 
+    inner_join(rv_non_bip, by = "count") %>%
+    rename("rvnon_bip_before" = "rvnon_bip") %>% 
+    inner_join(rv_non_bip, by = c("count_after" = "count")) %>%
+    rename("rvnon_bip_after" = "rvnon_bip") %>% 
+    left_join(rv_bip, by = "events") %>% 
+    mutate(rvnon_bip = rvnon_bip_after - rvnon_bip_before) %>% 
+    mutate(rv = coalesce(rvbip, rvnon_bip))
+  return(data2)
+}
+
+run_value_table <- function(data, title)
+{
+  data2 <- find_run_value(data)
+  tab <- data2 %>% 
+    group_by(pitch_name2) %>% 
+    summarise(total_rv = round(sum(rv, na.rm = T),1),
+              Pitches = n(),
+              Perc_Seen = round((Pitches / nrow(data)) * 100,1),
+              rv_per_100 = round((total_rv / Pitches) * 100,1), 
+              .groups = "drop") %>%
+    dplyr::select(pitch_name2, Pitches, Perc_Seen, total_rv, rv_per_100) %>%
+    rename("RV" = "total_rv", "RV Per 100" = "rv_per_100", "Pitch Type" = "pitch_name2",
+           "%" = "Perc_Seen") %>%
+    arrange(-Pitches)
+  
+  kable(tab, row.names = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", 
+                                      "responsive"), full_width = F, 
+                position = "left", fixed_thead = T) %>%
+  footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
 }
