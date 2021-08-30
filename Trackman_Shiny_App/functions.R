@@ -1,5 +1,7 @@
 lgwoba <- 0.713
 fip_c <- 3.172
+lgOBP <- 0.316	
+lgSLG <- 0.408
 
 rv_non_bip <- CalledStrike::count_values[1:12,]
 names(rv_non_bip) <- c("count","rvnon_bip")
@@ -106,9 +108,12 @@ spray_chart_advanced_home <- function(data, title)
       mutate(bb_type = as.factor(bb_type)) %>% 
       mutate(bb_type = forcats::fct_relevel(bb_type, "Ground Ball", "Line Drive", "Fly Ball","Popup")) %>%
       ggplot(aes(x = hc_x_, y = hc_y_, color = events, size = bb_type)) + 
+      #geom_hex() +
+      #scale_fill_distiller(palette = "Reds", direction = 1) +
+      #geom_mlb_stadium(stadium_ids = unique(data$team_name)[i],
+                      #stadium_transform_coords = TRUE, stadium_segments = "all") +
       geom_spraychart(stadium_ids = unique(data$team_name)[i],
-                      stadium_transform_coords = TRUE, 
-                      stadium_segments = "all") +
+                      stadium_transform_coords = TRUE, stadium_segments = "all") +
       theme_void() + 
       coord_fixed(ratio = 0.9) + 
       scale_size_discrete(range = c(2,5,9,14)) +
@@ -452,7 +457,18 @@ if_shift_usage <- function(data, title)
   shift <- data %>% filter(!is.na(events)) %>% 
     filter(!is.na(if_fielding_alignment) & if_fielding_alignment != 'null') %>%
     group_by(if_fielding_alignment) %>%
-    summarize(wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
+    summarize(PA = n(),
+              BB = sum(events == 'Walk'),
+              HBP = sum(events == "HBP"),
+              SF = sum(events == "Sac Fly"),
+              SacBunt = sum(events == "Sac Bunt"),
+              Error = sum(events == "Error"),
+              Single = sum(events == "Single"),
+              Double = sum(events == "Double"),
+              Triple = sum(events == "Triple"),
+              HR = sum(events == "Home Run"),
+              AB = PA - BB - HBP - SF - SacBunt - Error,
+              wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
               ISO = round(mean(as.numeric(iso_value[events %!in% c("Walk","Sac Bunt", "HBP", "Sac Fly")]), na.rm = T),3),
               N = n(), .groups = 'drop') %>%
     mutate(total = sum(N)) %>%
@@ -472,7 +488,18 @@ of_shift_usage <- function(data, title)
   shift <- data %>% filter(!is.na(events)) %>%
     filter(!is.na(of_fielding_alignment) & of_fielding_alignment != 'null') %>%
     group_by(of_fielding_alignment) %>%
-    summarize(wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
+    summarize(PA = n(),
+              BB = sum(events == 'Walk'),
+              HBP = sum(events == "HBP"),
+              SF = sum(events == "Sac Fly"),
+              SacBunt = sum(events == "Sac Bunt"),
+              Error = sum(events == "Error"),
+              Single = sum(events == "Single"),
+              Double = sum(events == "Double"),
+              Triple = sum(events == "Triple"),
+              HR = sum(events == "Home Run"),
+              AB = PA - BB - HBP - SF - SacBunt - Error,
+              wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
               ISO = round(mean(as.numeric(iso_value[events %!in% c("Walk","Sac Bunt", "HBP", "Sac Fly")]), na.rm = T),3),
               N = n(), .groups = 'drop') %>%
     mutate(total = sum(N)) %>%
@@ -501,6 +528,12 @@ query_hitter <- function(Full_Name)
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
     Last_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[2]
     Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  }
+  
+  if (Full_Name == "Tommy La Stella")
+  {
+    First_Name_Clean <- "Tommy"
+    Last_Name_Clean <- "La Stella"
   }
   #index <- as.numeric(rownames(hitters_list[(hitters_list$Last == Last_Name) & hitters_list$First == First_Name,]))
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
@@ -836,24 +869,28 @@ batter_basic_stats <- function(data, title)
     summarize(PA = n(),
               BB = sum(events == 'Walk'),
               HBP = sum(events == "HBP"),
-              SacFly = sum(events == "Sac Fly"),
+              SF = sum(events == "Sac Fly"),
               SacBunt = sum(events == "Sac Bunt"),
               Error = sum(events == "Error"),
-              AB = PA - BB - HBP - SacFly - SacBunt - Error,
+              Single = sum(events == "Single"),
+              Double = sum(events == "Double"),
+              Triple = sum(events == "Triple"),
+              HR = sum(events == "Home Run"),
+              AB = PA - BB - HBP - SF - SacBunt - Error,
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               OBP = round(sum(on_base, na.rm = T) / PA, 3),
               SLG = round(sum(total_bases, na.rm = T) / AB, 3),
               OPS = OBP + SLG, 
-              OPS_plus = round(100*(OPS / lgwoba)),
-              wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
+              OPS_plus = round((((OBP / lgOBP) + (SLG / lgSLG)) - 1) * 100),
+              wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
+              xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
               BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
-              HR = sum(events == "Home Run"),
               K = sum(events == "Strike Out"),
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
               .groups = 'drop') %>%
-    select(PA, AB, BA, OBP, SLG, OPS, OPS_plus, wOBA, BABIP, HR, H, K, K., BB, BB.) %>%
+    select(PA, AB, BA, OBP, SLG, OPS, OPS_plus, wOBA, xwOBAcon, BABIP, HR, H, K, K., BB, BB.) %>%
     distinct() %>% 
     rename("BB%" = "BB.", "K%" = "K.", "OPS+" = "OPS_plus")
   
@@ -871,19 +908,28 @@ batter_stats <- function(data, title)
     summarize(PA = n(),
               prop = round(PA / nrow(data %>% filter(!is.na(events))),3) * 100,
               BB = sum(events == 'Walk'),
+              HBP = sum(events == "HBP"),
               K = sum(events == "Strike Out"),
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
+              HR = sum(events == "Home Run"),
+              Single = sum(events == "Single"),
+              Double = sum(events == "Double"),
+              Triple = sum(events == "Triple"),
+              SF = sum(events == "Sac Fly"),
+              Error = sum(events == "Error"),
+              SacBunt = sum(events == "Sac Bunt"),
+              AB = PA - BB - HBP - SF - SacBunt - Error,
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
-              wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
-              xwOBA = round(mean(estimated_woba_using_speedangle[events %!in% c("Walk","Strike Out","HBP")]),3),
+              wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
+              xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
               hard_hit_rate = round(mean(hard_hit[events %!in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(-BB, - K, -PA, -H, - BIP) %>%
+    select(p_throws, prop, BA, xBA, wOBA, xwOBAcon, BABIP, K., BB., hard_hit_rate) %>%
     rename("BB%" = "BB.", "K%" = "K.", "Pitcher" = "p_throws", 
            "% Faced" = "prop", "Hard Hit %" = "hard_hit_rate")
   
@@ -901,19 +947,28 @@ pitcher_stats <- function(data, title)
     summarize(PA = n(),
               prop = round(PA / nrow(data %>% filter(!is.na(events))),3) * 100,
               BB = sum(events == 'Walk'),
+              HBP = sum(events == "HBP"),
               K = sum(events == "Strike Out"),
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
+              Single = sum(events == "Single"),
+              Double = sum(events == "Double"),
+              Triple = sum(events == "Triple"),
+              HR = sum(events == "Home Run"),
+              SF = sum(events == "Sac Fly"),
+              Error = sum(events == "Error"),
+              SacBunt = sum(events == "Sac Bunt"),
+              AB = PA - BB - HBP - SF - SacBunt - Error,
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
-              wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
+              wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
-              xwOBA = round(mean(estimated_woba_using_speedangle[events %!in% c("Strike Out","Walk","HBP")]),3),
+              xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
               hard_hit_rate = round(mean(hard_hit[events %!in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(-BB, - K, -PA, -H, -BIP) %>%
+    select(stand, prop, BA, xBA, wOBA, xwOBAcon, BABIP, K., BB., hard_hit_rate) %>%
     rename("BB%" = "BB.", "K%" = "K.", "Batter" = "stand", 
            "% Faced" = "prop", "Hard Hit %" = "hard_hit_rate")
   
@@ -965,13 +1020,20 @@ pitcher_basic_stats <- function(data, title)
               SB = sum(events == "Sac Bunt"),
               AB = PA - BB - HBP - SF - SB,
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
+              Single = sum(events %in% c("Single")),
+              Double = sum(events %in% c("Double")),
+              Triple = sum(events %in% c("Triple")),
+              H = sum(events %in% c("Single","Double","Triple","Home Run")),
               WHIP = round((BB + H) / IP,3),
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
-              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
-              wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
-              xwOBA = round(mean(estimated_woba_using_speedangle[events %!in% c("Strike Out","Walk","HBP")]),3),
+              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
+              wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
+              xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
+              #xwOBA = round(4.745763 * (xwOBAcon + 0.69*BB + 0.72*HBP) / (AB + BB + SF + HBP),3),
+              #xwOBA2 = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
+              xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
               FIP = round(((13*HR + 3*(BB + HBP) - 2*K) / (IP)) + fip_c,2),
               FIPer = round(((13*HR + 3*(BB + HBP) - 2*K) / (HR + BB + K)) + fip_c,2),
               K. = round(K / PA, 3) * 100,
@@ -981,7 +1043,7 @@ pitcher_basic_stats <- function(data, title)
               HR_per9 = round((HR / IP) * 9,2),
               hard_hit_rate = round(mean(hard_hit[events %!in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(IP, ERA, FIP, FIPer, BA, wOBA, BABIP, K_per9, K., BB_per9, BB., HR_per9, WHIP, hard_hit_rate) %>%
+    select(IP, ERA, FIP, BA, xBA, wOBA, xwOBAcon, BABIP, K_per9, K., BB_per9, BB., HR_per9, WHIP, hard_hit_rate) %>%
     rename("BB%" = "BB.", "K%" = "K.","Hard Hit %" = "hard_hit_rate", "K/9" = "K_per9", 
            "BB/9" = "BB_per9", "HR/9" = "HR_per9") 
   
@@ -996,16 +1058,27 @@ stats_by_type <- function(data, title)
 {
   tab <- data %>% filter(!is.na(events) & pitch_name2 != 'null') %>% 
     group_by(pitch_name2) %>%
-    summarize(wOBA = round(mean(as.numeric(woba_value[events %!in% c("Sac Bunt")]), na.rm = T),3),
+    summarize(PA = n(),
+              Single = sum(events %in% c("Single")),
+              Double = sum(events %in% c("Double")),
+              Triple = sum(events %in% c("Triple")),
+              HR = sum(events %in% c("Home Run")),
+              BB = sum(events == "Walk"),
+              HBP = sum(events == "HBP"),
+              Error = sum(events == "Error"),
+              SF = sum(events == "Sac Fly"),
+              SB = sum(events == "Sac Bunt"),
+              AB = PA - BB - HBP - SF - SB,
+              wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
               ISO = round(mean(as.numeric(iso_value[events %!in% c("Walk","Sac Bunt", "HBP", "Sac Fly")]), na.rm = T),3),
-              xwOBA = round(mean(estimated_woba_using_speedangle[events %!in% c("Walk","Strike Out","HBP")]),3),
+              xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               hard_hit_rate = round(mean(hard_hit[events %!in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               N = n(), 
               perc_seen = round(N / nrow(data %>% filter(!is.na(events) & pitch_name2 != 'null')),3)*100,
               .groups = 'drop') %>%
-    select(pitch_name2, perc_seen, BA, ISO, wOBA, xwOBA, xBA, hard_hit_rate) %>%
+    select(pitch_name2, perc_seen, BA, xBA, ISO, wOBA, xwOBAcon, hard_hit_rate) %>%
     arrange(-perc_seen) %>%
     rename("Pitch Type" = "pitch_name2", "Hard Hit %" = "hard_hit_rate",
            "Pitch Distribution" = "perc_seen") %>%
@@ -1236,6 +1309,10 @@ clean_statcast_data <- function(data)
                                 TRUE ~ 0),
            is_bip = case_when(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score") ~ 1,
                               TRUE ~ 0),
+           is_contact = case_when(description %in% c("hit_into_play_no_out","hit_into_play",
+                                                     "foul","foul_tip","foul_bunt",
+                                                     "hit_into_play_score") ~ 1,
+                              TRUE ~ 0),
            is_whiff = case_when(description %in% c("swinging_strike_blocked","swinging_strike") ~ 1,
                                 TRUE ~ 0),
            in_zone = case_when((plate_z <= 3.5 & plate_z >= 1.5 & abs(plate_x) <= 0.95) ~ 1, TRUE ~ 0),
@@ -1293,6 +1370,7 @@ clean_statcast_data <- function(data)
                                 p_throws == 'L' ~ 'LHP'),
            stand = case_when(stand == 'R' ~ 'RHB',
                              stand == 'L' ~ 'LHB'),
+           game_month = lubridate::month(game_date, label = TRUE),
            pfx_x = pfx_x * -12,
            pfx_z = pfx_z * 12,
            estimated_ba_using_speedangle = as.numeric(estimated_ba_using_speedangle),
@@ -1457,7 +1535,7 @@ heat_map_rv2 <- function(data, title, legend_title)
   data2 <- data2 %>% 
     group_by(pitch_name2) %>% 
     mutate(num_pitches = n()) %>% 
-    filter(num_pitches > 20) %>% 
+    filter(num_pitches > 60) %>% 
     ungroup()
   unique_pitches <- unique(data2$pitch_name2)
   topKzone <- 3.5

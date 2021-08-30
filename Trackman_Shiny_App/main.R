@@ -12,6 +12,7 @@ library('gridExtra')
 library('ggpointdensity')
 library('caret')
 require('mgcv')
+library('lubridate')
 `%!in%` = Negate(`%in%`)
 start_year <- 2021
 end_year <- 2021
@@ -19,7 +20,7 @@ end_year <- 2021
 setwd("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/Trackman_Shiny_App")
 source("functions.R")
 
-fg_hitters <- fg_bat_leaders(x = start_year, y = end_year, league = "all", qual = 50, ind = 1)
+fg_hitters <- fg_bat_leaders(x = start_year, y = end_year, league = "all", qual = 30, ind = 1)
 hitters_list <- fg_hitters %>% tidyr::separate(col = Name, into = c("First","Middle", "Last"), sep = "\\s") %>% select(First, Middle, Last) %>% distinct()
 hitters_list$name <- ifelse(is.na(hitters_list$Last) == FALSE, as.character(interaction(hitters_list, sep=" ")), 
                             as.character(interaction(hitters_list[, c("First","Middle")], sep=" ")))
