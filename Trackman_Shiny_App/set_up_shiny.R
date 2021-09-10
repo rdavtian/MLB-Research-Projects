@@ -2,58 +2,58 @@ set_up_shiny <- function()
 {
   ui <- fluidPage(
     titlePanel(h1("Ruslan's MLB Advanced Scouting Reports", align = "center")),
-      sidebarLayout(
+    sidebarLayout(
       sidebarPanel(width=3, 
-      selectInput("user_type_input","Player Type", choices = c("Choose...","Batter","Pitcher")),
-      conditionalPanel(condition = "input.user_type_input == 'Batter'",
-                       selectInput("user_name_input","Select Name",  c("Choose...", sort(hitters_list$name)))
-                       ),
-      conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
-                       selectInput("user_name_input2","Select Name", c("Choose...", sort(pitchers_list$name)))
-                       ),
-      conditionalPanel(condition = "input.user_type_input == 'Batter'",
-                       selectInput("user_visual_type","Charts & Tables", choices = c("Choose...","Batter Basic Stats","Spray Chart - All Hits","Spray Chart - All Outs",
-                                                                      "Spray Chart - Home Hits","Spray Chart - Home Outs",
-                                                                      "Pitch Chart - Hits","Pitch Chart - Outs","Pitch Chart - SO",
-                                                                      "Pitch Chart - Whiffs", "Pitch Chart - Pitch Type", 
-                                                                      "Contact Type", "Exit Velocity",
-                                                                      "Batted Ball Type", "Batted Ball Type by Pitch",
-                                                                      "IF Shift","OF Shift","Batter Metrics by Pitcher Side",
-                                                                      "Batter Metrics by Pitch Type","Whiff Rates"))
-                      ),
-      conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
-                       selectInput("user_visual_type2","Charts & Tables", choices = c("Choose...","Pitcher Basic Stats","Pitch Arsenal",
-                                                                       "Spray Chart - All Hits","Spray Chart - All Outs",
-                                                                       "Spray Chart - Home Hits","Spray Chart - Home Outs","Pitch Chart - Hits",
-                                                                       "Pitch Chart - Outs","Pitch Chart - SO","Pitch Chart - Whiffs", 
-                                                                       "Pitch Chart - Pitch Type","Pitch Chart - First Pitch",
-                                                                       "Pitch Chart - Ahead",  "Pitch Chart - Behind", "Contact Type","Release Points",
-                                                                       "Pitch Movement", "Pitch Velocity","Pitch Spin Rate","Pitch Spin Axis","Pitch Usage by Count",
-                                                                       "Exit Velocity", "Batted Ball Type","Batted Ball Type by Pitch", "IF Shift","OF Shift",
-                                                                       "Pitcher Metrics by Batter Side","Pitcher Metrics by Pitch Type","Whiff Rates","Run Value"))
-                      ),
-      conditionalPanel(condition = "input.user_type_input == 'Batter'",
-                       selectInput("user_heat_input","Heat Maps", choices = c("Choose...","Called Strike Probability","Swing Probability",
-                                                               "Contact Probability","Whiff Probability","Ball in Play Probability",
-                                                               "Home Run Probability","Hit Probability","Exit Velocity","Launch Angle","Spray Angle","wOBA","xBA","xWOBA"))),
-      conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
-                       selectInput("user_heat_input2","Heat Maps", choices = c("Choose...","Pitch Chart - Tendencies","Called Strike Probability","Swing Probability",
-                                                                "Contact Probability","Whiff Probability","Ball in Play Probability",
-                                                                "Home Run Probability","Hit Probability","Exit Velocity","Launch Angle","Spray Angle",
-                                                                "wOBA","xBA","xWOBA","Run Value", "Run Value 2"))
-                      ),
-      dateRangeInput(
-        inputId = "daterange",
-        label = "Select Date Range",
-        start = as.Date(paste0(start_year, "-03-25")),
-        end = as.Date(paste0(end_year, "-10-01")),
-        min = as.Date(paste0(start_year, "-03-25")),
-        max = as.Date(paste0(end_year, "-10-01")),
-        format = "mm/dd/yyyy",
-        separator = "to"),
-    ),
-     mainPanel(uiOutput("plot"))
-     ))
+                   selectInput("user_type_input","Player Type", choices = c("Choose...","Batter","Pitcher")),
+                   conditionalPanel(condition = "input.user_type_input == 'Batter'",
+                                    selectInput("user_name_input","Select Name",  c("Choose...", sort(hitters_list$name)))
+                   ),
+                   conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
+                                    selectInput("user_name_input2","Select Name", c("Choose...", sort(pitchers_list$name)))
+                   ),
+                   conditionalPanel(condition = "input.user_type_input == 'Batter'",
+                                    selectInput("user_visual_type","Charts & Tables", choices = c("Choose...","Batter Basic Stats","Spray Chart - All Hits","Spray Chart - All Outs",
+                                                                                                  "Spray Chart - Home Hits","Spray Chart - Home Outs",
+                                                                                                  "Pitch Chart - Hits","Pitch Chart - Outs","Pitch Chart - SO",
+                                                                                                  "Pitch Chart - Whiffs", "Pitch Chart - Pitch Type", 
+                                                                                                  "Contact Type", "Exit Velocity",
+                                                                                                  "Batted Ball Type", "Batted Ball Type by Pitch",
+                                                                                                  "IF Shift","OF Shift","Batter Metrics by Pitcher Side",
+                                                                                                  "Batter Metrics by Pitch Type","Whiff Rates"))
+                   ),
+                   conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
+                                    selectInput("user_visual_type2","Charts & Tables", choices = c("Choose...","Pitcher Basic Stats","Pitch Arsenal",
+                                                                                                   "Spray Chart - All Hits","Spray Chart - All Outs",
+                                                                                                   "Spray Chart - Home Hits","Spray Chart - Home Outs","Pitch Chart - Hits",
+                                                                                                   "Pitch Chart - Outs","Pitch Chart - SO","Pitch Chart - Whiffs", 
+                                                                                                   "Pitch Chart - Pitch Type","Pitch Chart - First Pitch",
+                                                                                                   "Pitch Chart - Ahead",  "Pitch Chart - Behind", "Contact Type","Release Points",
+                                                                                                   "Pitch Movement", "Pitch Velocity","Pitch Spin Rate","Pitch Spin Axis","Pitch Usage by Count",
+                                                                                                   "Exit Velocity", "Batted Ball Type","Batted Ball Type by Pitch", "IF Shift","OF Shift",
+                                                                                                   "Pitcher Metrics by Batter Side","Pitcher Metrics by Pitch Type","Whiff Rates","Run Value"))
+                   ),
+                   conditionalPanel(condition = "input.user_type_input == 'Batter'",
+                                    selectInput("user_heat_input","Heat Maps", choices = c("Choose...","Called Strike Probability","Swing Probability",
+                                                                                           "Contact Probability","Whiff Probability","Ball in Play Probability",
+                                                                                           "Home Run Probability","Hit Probability","Exit Velocity","Launch Angle","Spray Angle","wOBA","xBA","xwOBA"))),
+                   conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
+                                    selectInput("user_heat_input2","Heat Maps", choices = c("Choose...","Pitch Chart - Tendencies","Called Strike Probability","Swing Probability",
+                                                                                            "Contact Probability","Whiff Probability","Ball in Play Probability",
+                                                                                            "Home Run Probability","Hit Probability","Exit Velocity","Launch Angle","Spray Angle",
+                                                                                            "wOBA","xBA","xwOBA","Run Value", "Run Value 2"))
+                   ),
+                   dateRangeInput(
+                     inputId = "daterange",
+                     label = "Select Date Range",
+                     start = as.Date(paste0(start_year, "-03-25")),
+                     end = as.Date(paste0(end_year, "-10-01")),
+                     min = as.Date(paste0(start_year, "-03-25")),
+                     max = as.Date(paste0(end_year, "-10-01")),
+                     format = "mm/dd/yyyy",
+                     separator = "to"),
+      ),
+      mainPanel(uiOutput("plot"))
+    ))
   
   
   server <- function(input, output, session)
@@ -67,7 +67,7 @@ set_up_shiny <- function()
     output$enddate <- renderText({
       as.character(input$daterange[2])
     })
-
+    
     output$plot <- renderUI({
       if (input$user_type_input == "Batter" & input$user_name_input != "Choose...")
       {
@@ -242,19 +242,19 @@ set_up_shiny <- function()
         else if (input$user_heat_input == "wOBA" & input$user_name_input != "Choose..." & input$user_visual_type == "Choose...")
         {
           hitter2 <- setup_inplay(hitter)
-          output$plot29 <- renderPlot({woba_heat_map_batter(hitter2, title = paste0("wOBA by Pitcher Side ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot29 <- renderPlot({heat_map(hitter2, var = "woba_value", binary = FALSE, legend_title = "wOBA", title = paste0("wOBA ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot29")
         }
         else if (input$user_heat_input == "xBA" & input$user_name_input != "Choose..." & input$user_visual_type == "Choose...")
         {
           hitter2 <- setup_inplay(hitter)
-          output$plot29 <- renderPlot({xba_heat_map_batter(hitter2, title = paste0("xBA by Pitcher Side ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot29 <- renderPlot({heat_map(hitter2, var = "estimated_ba_using_speedangle", binary = FALSE, legend_title = "xBA", title = paste0("xBA ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot29")
         }
-        else if (input$user_heat_input == "xWOBA" & input$user_name_input != "Choose..." & input$user_visual_type == "Choose...")
+        else if (input$user_heat_input == "xwOBA" & input$user_name_input != "Choose..." & input$user_visual_type == "Choose...")
         {
           hitter2 <- setup_inplay(hitter)
-          output$plot29 <- renderPlot({xwoba_heat_map_batter(hitter2, title = paste0("xWOBA by Pitcher Side ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot29 <- renderPlot({heat_map(hitter2, var = "estimated_woba_using_speedangle", binary = FALSE, legend_title = "xwOBA", title = paste0("xwOBA ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot29")
         }
         else if (input$user_heat_input == "Home Run Probability" & input$user_name_input != "Choose..." & input$user_visual_type == "Choose...")
@@ -477,19 +477,19 @@ set_up_shiny <- function()
         else if (input$user_heat_input2 == "wOBA" & input$user_name_input2 != "Choose..." & input$user_visual_type2 == "Choose...")
         {
           pitcher2 <- setup_inplay(pitcher)
-          output$plot38 <- renderPlot({woba_heat_map_pitcher(pitcher2, title = paste0("wOBA by Batter Side ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot38 <- renderPlot({heat_map(pitcher2, var = "woba_value", binary = FALSE, legend_title = "wOBA", title = paste0("wOBA ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot38")
         }
         else if (input$user_heat_input2 == "xBA" & input$user_name_input2 != "Choose..." & input$user_visual_type2 == "Choose...")
         {
           pitcher2 <- setup_inplay(pitcher)
-          output$plot39 <- renderPlot({xba_heat_map_pitcher(pitcher2, title = paste0("xBA by Batter Side ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot39 <- renderPlot({heat_map(pitcher2, var = "estimated_ba_using_speedangle", binary = FALSE, legend_title = "xBA", title = paste0("xBA ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot39")
         }
-        else if (input$user_heat_input2 == "xWOBA" & input$user_name_input2 != "Choose..." & input$user_visual_type2 == "Choose...")
+        else if (input$user_heat_input2 == "xwOBA" & input$user_name_input2 != "Choose..." & input$user_visual_type2 == "Choose...")
         {
           pitcher2 <- setup_inplay(pitcher)
-          output$plot40 <- renderPlot({xwoba_heat_map_pitcher(pitcher2, title = paste0("xWOBA by Batter Side ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot40 <- renderPlot({heat_map(pitcher2, var = "estimated_woba_using_speedangle", binary = FALSE, legend_title = "xwOBA", title = paste0("xwOBA ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot40")
         }
         else if (input$user_visual_type2 == "Pitch Usage by Count" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")

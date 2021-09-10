@@ -27,35 +27,35 @@ add_team_names <- function(data)
   else if (end_year - start_year == 1)
   {
     data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]),
-    ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_))
+                        ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_))
   }
   else if (end_year - start_year == 2) {
     data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]), 
-    ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1])), decreasing = T)[1]),
-    ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_)))
+                        ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1])), decreasing = T)[1]),
+                               ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_)))
   }
   else if (end_year - start_year == 3) {
     data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]), 
                         ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1])), decreasing = T)[1]),
                                ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2])), decreasing = T)[1]),
-                               ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_))))
+                                      ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_))))
   } else {
     
     data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year])), decreasing = T)[1]), 
                         ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 1])), decreasing = T)[1]),
                                ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 2])), decreasing = T)[1]),
                                       ifelse(str_extract(data$game_date, "20[0-9][0-9]") == start_year + 3, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 3], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == start_year + 3])), decreasing = T)[1]),
-                                      ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_)))))
+                                             ifelse(str_extract(data$game_date, "20[0-9][0-9]") == end_year, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == end_year])), decreasing = T)[1]), NA_character_)))))
     
   }
   
   #data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]))
   
   #data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2020, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020])), decreasing = T)[1]),
-                      #ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]), NA_character_))
+  #ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]), NA_character_))
   #data$team <- ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2019, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019])), decreasing = T)[1]), 
-                      #ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2020, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020])), decreasing = T)[1]),
-                             #ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]), NA_character_)))
+  #ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2020, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2020])), decreasing = T)[1]),
+  #ifelse(str_extract(data$game_date, "20[0-9][0-9]") == 2021, names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2021])), decreasing = T)[1]), NA_character_)))
   #data <- data %>% 
   #mutate(team = case_when(str_extract(data$game_date, "20[0-9][0-9]") == 2019 ~  
   #names(sort(table(c(data$home_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019], data$away_team[str_extract(data$game_date, "20[0-9][0-9]") == 2019])), decreasing = T)[1]),
@@ -111,7 +111,7 @@ spray_chart_advanced_home <- function(data, title)
       #geom_hex() +
       #scale_fill_distiller(palette = "Reds", direction = 1) +
       #geom_mlb_stadium(stadium_ids = unique(data$team_name)[i],
-                      #stadium_transform_coords = TRUE, stadium_segments = "all") +
+      #stadium_transform_coords = TRUE, stadium_segments = "all") +
       geom_spraychart(stadium_ids = unique(data$team_name)[i],
                       stadium_transform_coords = TRUE, stadium_segments = "all") +
       theme_void() + 
@@ -254,7 +254,7 @@ pitch_chart_pitcher <- function(data, title, hits = FALSE, outs = FALSE)
     
   } else if (outs == TRUE) {
     data2 <- data %>% filter(events != "Strike Out")
-      #mutate(events = forcats::fct_relevel(events,"Single","Double","Triple","Home Run"))
+    #mutate(events = forcats::fct_relevel(events,"Single","Double","Triple","Home Run"))
     
     plot <- zone + geom_point(data = data2, aes(x = plate_x, y = plate_z, size = as.factor(events), color = pitch_name2)) + 
       labs(size = "Event", color = "Pitch Type",
@@ -468,13 +468,17 @@ if_shift_usage <- function(data, title)
               Triple = sum(events == "Triple"),
               HR = sum(events == "Home Run"),
               AB = PA - BB - HBP - SF - SacBunt - Error,
+              BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
+              xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
+              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
               wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
+              xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
               ISO = round(mean(as.numeric(iso_value[events %!in% c("Walk","Sac Bunt", "HBP", "Sac Fly")]), na.rm = T),3),
               N = n(), .groups = 'drop') %>%
     mutate(total = sum(N)) %>%
     mutate(prop = round(N / total, 3) * 100) %>%
     select(-total, -N) %>%
-    select(if_fielding_alignment, prop, wOBA, ISO) %>%
+    select(if_fielding_alignment, prop, BA, xBA, BABIP, wOBA, xwOBAcon, ISO) %>%
     rename("IF Defense" = "if_fielding_alignment",
            "% Faced" = "prop")
   kable(shift, row.names = F) %>%
@@ -499,13 +503,17 @@ of_shift_usage <- function(data, title)
               Triple = sum(events == "Triple"),
               HR = sum(events == "Home Run"),
               AB = PA - BB - HBP - SF - SacBunt - Error,
+              BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
+              xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
+              BABIP = round(mean(is_hit[(is_bip == 1) & (events %!in% c("Home Run"))], na.rm = T),3),
               wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
+              xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
               ISO = round(mean(as.numeric(iso_value[events %!in% c("Walk","Sac Bunt", "HBP", "Sac Fly")]), na.rm = T),3),
               N = n(), .groups = 'drop') %>%
     mutate(total = sum(N)) %>%
     mutate(prop = round(N / total, 3) * 100) %>%
     select(-total, -N) %>%
-    select(of_fielding_alignment, prop, wOBA, ISO) %>%
+    select(of_fielding_alignment, prop, BA, xBA, BABIP, wOBA, xwOBAcon, ISO) %>%
     rename("OF Defense" = "of_fielding_alignment",
            "% Faced" = "prop")
   kable(shift, row.names = F) %>%
@@ -812,7 +820,20 @@ batted_ball_type <- function(data, title)
     select(bb_type, rate) %>%
     tidyr::spread(bb_type, rate)
   
-  kable(hit_distr, row.names = F, format = "html") %>%
+  spray_dir <- data %>% filter(spray_angle != 'null' & !is.na(spray_angle) & is_bip == 1) %>%
+    mutate(spray_dir = case_when(spray_direction == "Center" ~ "Center %",
+                                 spray_direction == "Oppo" ~ "Oppo %",
+                                 spray_direction == "Pull" ~ "Pull %")) %>%
+    group_by(spray_dir) %>% tally() %>%
+    mutate(total = sum(n)) %>%
+    mutate(rate = round(n / total, 3) * 100) %>% 
+    select(spray_dir, rate) %>%
+    tidyr::spread(spray_dir, rate) %>%
+    select(`Pull %`, `Center %`, `Oppo %`)
+  
+  df <- cbind(hit_distr, spray_dir)
+  
+  kable(df, row.names = F, format = "html") %>%
     kable_styling(bootstrap_options = c("striped", "hover", "condensed", 
                                         "responsive"), full_width = F, 
                   position = "left", fixed_thead = T) %>%
@@ -987,20 +1008,20 @@ pitcher_basic_stats <- function(data, title)
     summarise(n = n() / 3, .groups = "drop") %>% select(n) %>% sum()
   #IP <- data %>% dplyr::select(game_date, outs_when_up, inning) %>% distinct() %>% nrow() / 3
   #IP <- data %>%
-    #mutate(inning2 = case_when(outs_when_up == 0 ~ inning - 1,
-                               #outs_when_up == 1 ~ (inning - 1) + (1/3),
-                               #TRUE ~ inning)) %>%
-    #tidyr::unite(inning3, inning, outs_when_up, sep = ".", remove = FALSE) %>%
-    #group_by(game_date) %>% 
-    #summarise(IP = n_distinct(inning3) / 3, .groups = "drop") %>% 
-    #ungroup() %>% select(IP) %>% pull() %>% sum()
+  #mutate(inning2 = case_when(outs_when_up == 0 ~ inning - 1,
+  #outs_when_up == 1 ~ (inning - 1) + (1/3),
+  #TRUE ~ inning)) %>%
+  #tidyr::unite(inning3, inning, outs_when_up, sep = ".", remove = FALSE) %>%
+  #group_by(game_date) %>% 
+  #summarise(IP = n_distinct(inning3) / 3, .groups = "drop") %>% 
+  #ungroup() %>% select(IP) %>% pull() %>% sum()
   
   ERA <- data %>%
     group_by(game_date) %>% 
     mutate(runs_scored_home = abs(home_score - lag(home_score)),
            runs_scored_away = abs(away_score - lag(away_score))) %>%
     #mutate(runs_scored_home = tidyr::replace_na(runs_scored_home, 0),
-           #runs_scored_away = tidyr::replace_na(runs_scored_away, 0)) %>% 
+    #runs_scored_away = tidyr::replace_na(runs_scored_away, 0)) %>% 
     mutate(runs_allowed = case_when(team_name != home_team_name ~ runs_scored_home, 
                                     TRUE ~ runs_scored_away)) %>%
     #filter(events2 != "Error") %>% 
@@ -1263,7 +1284,7 @@ release_position <- function(data, title)
 
 clean_statcast_data <- function(data)
 {
-  data <- data %>% 
+  data2 <- data %>% 
     filter(pitch_name != "Intentional Ball", pitch_name != "Pitch Out") %>%
     add_team_names() %>%
     mutate(plate_x = -plate_x, 
@@ -1312,7 +1333,7 @@ clean_statcast_data <- function(data)
            is_contact = case_when(description %in% c("hit_into_play_no_out","hit_into_play",
                                                      "foul","foul_tip","foul_bunt",
                                                      "hit_into_play_score") ~ 1,
-                              TRUE ~ 0),
+                                  TRUE ~ 0),
            is_whiff = case_when(description %in% c("swinging_strike_blocked","swinging_strike") ~ 1,
                                 TRUE ~ 0),
            in_zone = case_when((plate_z <= 3.5 & plate_z >= 1.5 & abs(plate_x) <= 0.95) ~ 1, TRUE ~ 0),
@@ -1387,7 +1408,11 @@ clean_statcast_data <- function(data)
     mutate(x = hc_x - 125.42, 
            y = 198.27 - hc_y,
            phi = (180 * atan(x/y)) / pi, # 100 * atan(x/y),
-           spray_angle = case_when(stand == "RHB" ~ phi, TRUE ~ -phi)) %>%
+           spray_angle = case_when(stand == "RHB" ~ phi, TRUE ~ -phi),
+           spray_direction = case_when(spray_angle < -15 ~ "Pull",
+                                       spray_angle > 15 ~ "Oppo",
+                                       spray_angle >= -15 & spray_angle <= 15 ~ "Center",
+                                       TRUE ~ NA_character_)) %>%
     mutate_at(vars(estimated_ba_using_speedangle, estimated_woba_using_speedangle, 
                    woba_value, woba_denom, babip_value, iso_value), ~replace(., is.na(.), 0))
 }
@@ -1453,7 +1478,7 @@ woba_heat_map_batter <- function(data, title)
 }
 xba_heat_map_batter <- function(data, title)
 {
-  data2 <- split(data, data$p_throws)
+  data2 <- data #split(data, data$p_throws)
   ehit_plot(data2, title = paste(unique(data$player_name), title))
 }
 xwoba_heat_map_batter <- function(data, title)
@@ -1505,8 +1530,8 @@ heat_map_rv <- function(data, title, legend_title)
   data.predict <- do.call(rbind, predict.data)
   lp <- predict(fit, data.predict)
   data.predict$RV <- lp
-    
-
+  
+  
   ggplot(kZone, aes(x, y)) +
     geom_tile(data=data.predict, 
               aes(plate_x, plate_z, fill = RV)) +
@@ -1613,8 +1638,8 @@ run_value_table <- function(data, title)
     arrange(-Pitches)
   
   kable(tab, row.names = F) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", 
-                                      "responsive"), full_width = F, 
-                position = "left", fixed_thead = T) %>%
-  footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", 
+                                        "responsive"), full_width = F, 
+                  position = "left", fixed_thead = T) %>%
+    footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
 }
