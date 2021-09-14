@@ -35,11 +35,11 @@ set_up_shiny <- function()
                    conditionalPanel(condition = "input.user_type_input == 'Batter'",
                                     selectInput("user_heat_input","Heat Maps", choices = c("Choose...","Called Strike Probability","Swing Probability",
                                                                                            "Contact Probability","Whiff Probability","Ball in Play Probability",
-                                                                                           "Home Run Probability","Hit Probability","Exit Velocity","Launch Angle","Spray Angle","wOBA","xBA","xwOBA"))),
+                                                                                           "Hit Probability","Home Run Probability","Exit Velocity","Launch Angle","Spray Angle","wOBA","xBA","xwOBA"))),
                    conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
                                     selectInput("user_heat_input2","Heat Maps", choices = c("Choose...","Pitch Chart - Tendencies","Called Strike Probability","Swing Probability",
                                                                                             "Contact Probability","Whiff Probability","Ball in Play Probability",
-                                                                                            "Home Run Probability","Hit Probability","Exit Velocity","Launch Angle","Spray Angle",
+                                                                                            "Hit Probability","Home Run Probability","Exit Velocity","Launch Angle","Spray Angle",
                                                                                             "wOBA","xBA","xwOBA","Run Value", "Run Value 2"))
                    ),
                    dateRangeInput(

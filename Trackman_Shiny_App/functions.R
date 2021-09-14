@@ -478,6 +478,7 @@ if_shift_usage <- function(data, title)
     mutate(total = sum(N)) %>%
     mutate(prop = round(N / total, 3) * 100) %>%
     select(-total, -N) %>%
+    arrange(-prop) %>%
     select(if_fielding_alignment, prop, BA, xBA, BABIP, wOBA, xwOBAcon, ISO) %>%
     rename("IF Defense" = "if_fielding_alignment",
            "% Faced" = "prop")
@@ -513,6 +514,7 @@ of_shift_usage <- function(data, title)
     mutate(total = sum(N)) %>%
     mutate(prop = round(N / total, 3) * 100) %>%
     select(-total, -N) %>%
+    arrange(-prop) %>%
     select(of_fielding_alignment, prop, BA, xBA, BABIP, wOBA, xwOBAcon, ISO) %>%
     rename("OF Defense" = "of_fielding_alignment",
            "% Faced" = "prop")
