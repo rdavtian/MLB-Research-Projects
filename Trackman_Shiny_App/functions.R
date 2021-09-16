@@ -1004,10 +1004,13 @@ pitcher_stats <- function(data, title)
 
 pitcher_basic_stats <- function(data, title)
 {
-  IP <- data %>%
-    select(game_date, outs_when_up, inning) %>% distinct() %>%
-    group_by(game_date) %>% 
-    summarise(n = n() / 3, .groups = "drop") %>% select(n) %>% sum()
+  #IP <- data %>%
+    #select(game_date, outs_when_up, inning) %>% distinct() %>%
+    #group_by(game_date) %>% 
+    #summarise(n = n() / 3, .groups = "drop") %>% select(n) %>% sum()
+  
+  IP <- round(sum(data$is_out) / 3,2)
+  
   #IP <- data %>% dplyr::select(game_date, outs_when_up, inning) %>% distinct() %>% nrow() / 3
   #IP <- data %>%
   #mutate(inning2 = case_when(outs_when_up == 0 ~ inning - 1,
@@ -1393,6 +1396,9 @@ clean_statcast_data <- function(data)
                                 p_throws == 'L' ~ 'LHP'),
            stand = case_when(stand == 'R' ~ 'RHB',
                              stand == 'L' ~ 'LHB'),
+           is_out = case_when(events %in% c("Field Out","Strike Out","Sac Fly",
+                                            "Sac Bunt", "Force Out") ~ 1, TRUE ~ 0),
+           is_out = case_when(events %in% c("Double Play") ~ 2, TRUE ~ is_out),
            game_month = lubridate::month(game_date, label = TRUE),
            pfx_x = pfx_x * -12,
            pfx_z = pfx_z * 12,
