@@ -1,3 +1,4 @@
+player_zones <- read.csv("player_zones.csv")
 lgwoba <- 0.713
 fip_c <- 3.172
 lgOBP <- 0.316	
@@ -175,10 +176,19 @@ spray_chart_advanced_generic <- function(data, title)
     theme(aspect.ratio = 0.9) + 
     theme(plot.title = element_text(hjust = 0.5, vjust=0,size=17,face = 'bold'))
 }
-create_strikezone <- function()
+create_strikezone <- function(data)
 {
   x <- c(-.9,.9,.9,-.9,-.9)
-  z <- c(1.55,1.55,3.5,3.5,1.55)
+  if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
+  {
+    z <- c(unique(data$person_strike_zone_bottom),unique(data$person_strike_zone_bottom),
+           unique(data$person_strike_zone_top), unique(data$person_strike_zone_top),
+           unique(data$person_strike_zone_bottom))
+  }
+  else 
+  {
+    z <- c(1.55,1.55,3.5,3.5,1.55)
+  }
   sz <- as.data.frame(tibble(x,z)) 
   g <- ggplot() + geom_path(data = sz, aes(x=x, y=z), lwd = 1.5) +
     coord_equal() + xlab("feet from home plate") +
@@ -189,7 +199,7 @@ create_strikezone <- function()
 pitch_chart_batter <- function(data, title, hits = FALSE, outs = FALSE)
 {
   update_geom_defaults("point",list(size=4))
-  zone <- create_strikezone()
+  zone <- create_strikezone(data)
   data <- data %>% filter(pitch_name2 != 'null')
   
   if (hits == TRUE)
@@ -239,7 +249,7 @@ pitch_chart_batter <- function(data, title, hits = FALSE, outs = FALSE)
 pitch_chart_pitcher <- function(data, title, hits = FALSE, outs = FALSE)
 {
   update_geom_defaults("point",list(size=4))
-  zone <- create_strikezone()
+  zone <- create_strikezone(data)
   data <- data %>% filter(pitch_name2 != 'null')
   
   if (hits == TRUE)
@@ -288,7 +298,7 @@ pitch_chart_pitcher <- function(data, title, hits = FALSE, outs = FALSE)
 pitch_chart_pitcher_first_pitch <- function(data, title)
 {
   update_geom_defaults("point",list(size=4))
-  zone <- create_strikezone()
+  zone <- create_strikezone(data)
   data2 <- data %>% filter(pitch_name2 != 'null', count == "0-0") %>% 
     mutate(events3 = case_when(events %in% c("Single","Double","Triple","Home Run") ~ "Hit",
                                description %in% c("ball","blocked_ball") ~ "Ball", 
@@ -320,7 +330,7 @@ pitch_chart_pitcher_first_pitch <- function(data, title)
 pitch_chart_pitcher_behind <- function(data, title)
 {
   update_geom_defaults("point",list(size=4))
-  zone <- create_strikezone()
+  zone <- create_strikezone(data)
   data2 <- data %>% filter(pitch_name2 != 'null', count %in% c("1-0","2-0","3-0","2-1","3-1")) %>% 
     mutate(events3 = case_when(events %in% c("Single","Double","Triple","Home Run") ~ "Hit",
                                description %in% c("ball","blocked_ball") ~ "Ball", 
@@ -353,7 +363,7 @@ pitch_chart_pitcher_behind <- function(data, title)
 pitch_chart_density <- function(data, title)
 {
   update_geom_defaults("point",list(size=2))
-  zone <- create_strikezone()
+  zone <- create_strikezone(data)
   data2 <- data %>% filter(pitch_name2 != 'null') %>%
     group_by(pitch_name2) %>% 
     mutate(n = n(),
@@ -384,7 +394,7 @@ pitch_chart_pitch_type <- function(data, title)
   update_geom_defaults("point",list(size=2))
   ranks <- quantile(data$launch_speed, na.rm = T, c(0, 0.5, 1))
   
-  zone <- create_strikezone()
+  zone <- create_strikezone(data)
   data2 <- data %>% filter(pitch_name2 != 'null') %>% 
     mutate(Type = case_when(launch_speed > 95 ~ "Exit Velo > 95",
                             (launch_speed >= 70 & launch_speed < 95) ~ "70 < Exit Velo < 95", 
@@ -422,7 +432,7 @@ pitch_chart_pitch_type <- function(data, title)
 pitch_chart_pitcher_ahead <- function(data, title)
 {
   update_geom_defaults("point",list(size=4))
-  zone <- create_strikezone()
+  zone <- create_strikezone(data)
   data2 <- data %>% filter(pitch_name2 != 'null', count %in% c("0-1","0-2","1-2","2-2")) %>% 
     mutate(events3 = case_when(events %in% c("Single","Double","Triple","Home Run") ~ "Hit",
                                description %in% c("ball","blocked_ball") ~ "Ball", 
@@ -561,7 +571,7 @@ query_hitter <- function(Full_Name)
   #hitter <- rbind(hitter_19, hitter_20, hitter_21)
   #hitter <- rbind(hitter_20, hitter_21)
   #hitter <- rbind(hitter_21)
-  return(hitter_sc)
+  return(list(hitter_sc, player_id))
 }
 
 query_pitcher <- function(Full_Name)
@@ -607,7 +617,7 @@ query_pitcher <- function(Full_Name)
   #pitcher <- rbind(pitcher_19, pitcher_20, pitcher_21)
   #pitcher <- rbind(pitcher_20, pitcher_21)
   #pitcher <- rbind(pitcher_21)
-  return(pitcher_sc)
+  return(list(pitcher_sc, player_id))
 }
 
 spray_chart <- function(data, title)
@@ -1289,10 +1299,11 @@ release_position <- function(data, title)
 
 clean_statcast_data <- function(data)
 {
-  data2 <- data %>% 
+  data2 <- data[[1]] %>% 
     filter(pitch_name != "Intentional Ball", pitch_name != "Pitch Out") %>%
     add_team_names() %>%
-    mutate(plate_x = -plate_x, 
+    mutate(mlbam_id = data[[2]],
+           plate_x = -plate_x, 
            woba_value = as.numeric(woba_value),
            woba_denom = as.numeric(woba_denom),
            babip_value = as.numeric(babip_value),
@@ -1342,6 +1353,7 @@ clean_statcast_data <- function(data)
            is_whiff = case_when(description %in% c("swinging_strike_blocked","swinging_strike") ~ 1,
                                 TRUE ~ 0),
            in_zone = case_when((plate_z <= 3.5 & plate_z >= 1.5 & abs(plate_x) <= 0.95) ~ 1, TRUE ~ 0),
+           is_barrel = case_when(launch_angle <= 50 & launch_speed >= 98 & launch_speed * 1.5 - launch_angle >= 117 & launch_speed + launch_angle >= 124 ~ 1, TRUE ~ 0),
            made_contact = case_when(description %in% c("hit_into_play","hit_into_play_no_out",
                                                        "hit_into_play_score","foul","foul_tip","foul_bunt") ~ 1,
                                     TRUE ~ 0),
@@ -1422,13 +1434,20 @@ clean_statcast_data <- function(data)
                                        spray_angle >= -15 & spray_angle <= 15 ~ "Center",
                                        TRUE ~ NA_character_)) %>%
     mutate_at(vars(estimated_ba_using_speedangle, estimated_woba_using_speedangle, 
-                   woba_value, woba_denom, babip_value, iso_value), ~replace(., is.na(.), 0))
+                   woba_value, woba_denom, babip_value, iso_value), ~replace(., is.na(.), 0)) %>% 
+    left_join(player_zones, by = "mlbam_id")
 }
 
 heat_map <- function(data, var, title, binary, legend_title)
 {
-  topKzone <- 3.5
-  botKzone <- 1.55
+  if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
+  {
+    topKzone <- unique(data$person_strike_zone_top)
+    botKzone <- unique(data$person_strike_zone_bottom)
+  } else {
+    topKzone <- 3.5
+    botKzone <- 1.55
+  }
   inKzone <- -0.9
   outKzone <- 0.9
   kZone <- data.frame(
@@ -1461,7 +1480,8 @@ heat_map <- function(data, var, title, binary, legend_title)
     scale_fill_distiller(palette = "Spectral") +
     #scale_fill_distiller(palette = "Spectral", limits = c(min, max)) +
     #geom_path(lwd=1.5, col="black") +
-    add_zone("black") + 
+    #add_zone("black") + 
+    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1, col="black") + 
     coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
     ggtitle(paste(unique(data$player_name), title)) + 
     # unlist(strsplit(unique(data$player_name), " "))[2]
@@ -1514,8 +1534,14 @@ xwoba_heat_map_pitcher <- function(data, title)
 heat_map_rv <- function(data, title, legend_title)
 {
   data <- find_run_value(data)
-  topKzone <- 3.5
-  botKzone <- 1.55
+  if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
+  {
+    topKzone <- unique(data$person_strike_zone_top)
+    botKzone <- unique(data$person_strike_zone_bottom)
+  } else {
+    topKzone <- 3.5
+    botKzone <- 1.55
+  }
   inKzone <- -0.9
   outKzone <- 0.9
   kZone <- data.frame(
@@ -1544,7 +1570,8 @@ heat_map_rv <- function(data, title, legend_title)
     geom_tile(data=data.predict, 
               aes(plate_x, plate_z, fill = RV)) +
     scale_fill_distiller(palette = "Spectral") +
-    add_zone("black") + 
+    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1, col="black") + 
+    #add_zone("black") + 
     coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
     ggtitle(paste(unique(data$player_name), title)) + 
     xlab("Feet From Homeplate (Pitcher's Perspective)") + 
@@ -1571,8 +1598,15 @@ heat_map_rv2 <- function(data, title, legend_title)
     filter(num_pitches > 60) %>% 
     ungroup()
   unique_pitches <- unique(data2$pitch_name2)
-  topKzone <- 3.5
-  botKzone <- 1.55
+  
+  if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
+  {
+    topKzone <- unique(data$person_strike_zone_top)
+    botKzone <- unique(data$person_strike_zone_bottom)
+  } else {
+    topKzone <- 3.5
+    botKzone <- 1.55
+  }
   inKzone <- -0.9
   outKzone <- 0.9
   kZone <- data.frame(
@@ -1598,7 +1632,8 @@ heat_map_rv2 <- function(data, title, legend_title)
     geom_tile(data=df, 
               aes(plate_x, plate_z, fill = RV)) +
     scale_fill_distiller(palette = "Spectral") +
-    add_zone("black") + 
+    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1, col="black") + 
+    #add_zone("black") + 
     coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
     ggtitle(paste(unique(data$player_name), title)) + 
     xlab("Feet From Homeplate (Pitcher's Perspective)") + 
