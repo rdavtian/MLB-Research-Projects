@@ -1481,7 +1481,7 @@ heat_map <- function(data, var, title, binary, legend_title)
     #scale_fill_distiller(palette = "Spectral", limits = c(min, max)) +
     #geom_path(lwd=1.5, col="black") +
     #add_zone("black") + 
-    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1, col="black") + 
+    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1.5, col="black") + 
     coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
     ggtitle(paste(unique(data$player_name), title)) + 
     # unlist(strsplit(unique(data$player_name), " "))[2]
@@ -1570,7 +1570,7 @@ heat_map_rv <- function(data, title, legend_title)
     geom_tile(data=data.predict, 
               aes(plate_x, plate_z, fill = RV)) +
     scale_fill_distiller(palette = "Spectral") +
-    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1, col="black") + 
+    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1.5, col="black") + 
     #add_zone("black") + 
     coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
     ggtitle(paste(unique(data$player_name), title)) + 
@@ -1632,7 +1632,7 @@ heat_map_rv2 <- function(data, title, legend_title)
     geom_tile(data=df, 
               aes(plate_x, plate_z, fill = RV)) +
     scale_fill_distiller(palette = "Spectral") +
-    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1, col="black") + 
+    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1.5, col="black") + 
     #add_zone("black") + 
     coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
     ggtitle(paste(unique(data$player_name), title)) + 
