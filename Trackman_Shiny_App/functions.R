@@ -1464,7 +1464,7 @@ heat_map <- function(data, var, title, binary, legend_title)
     lp <- predict(fit, data.predict)
     data.predict$Prob <- exp(lp) / (1 + exp(lp))
   }
-  else{
+  else {
     fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z)")), data=data)
     x <- seq(-1.7, 1.7, length.out=50)
     y <- seq(0.5, 4.5, length.out=50)
