@@ -1366,7 +1366,6 @@ clean_statcast_data <- function(data)
                                   TRUE ~ 0),
            is_whiff = case_when(description %in% c("swinging_strike_blocked","swinging_strike") ~ 1,
                                 TRUE ~ 0),
-           in_zone = case_when((plate_z <= 3.5 & plate_z >= 1.5 & abs(plate_x) <= 0.95) ~ 1, TRUE ~ 0),
            is_barrel = case_when(launch_angle <= 50 & launch_speed >= 98 & launch_speed * 1.5 - launch_angle >= 117 & launch_speed + launch_angle >= 124 ~ 1, TRUE ~ 0),
            made_contact = case_when(description %in% c("hit_into_play","hit_into_play_no_out",
                                                        "hit_into_play_score","foul","foul_tip","foul_bunt") ~ 1,
@@ -1449,7 +1448,10 @@ clean_statcast_data <- function(data)
                                        TRUE ~ NA_character_)) %>%
     mutate_at(vars(estimated_ba_using_speedangle, estimated_woba_using_speedangle, 
                    woba_value, woba_denom, babip_value, iso_value), ~replace(., is.na(.), 0)) %>% 
-    left_join(player_zones, by = "mlbam_id")
+    left_join(player_zones, by = "mlbam_id") %>% 
+    mutate(person_strike_zone_top = case_when(!is.na(person_strike_zone_top) ~ person_strike_zone_top, TRUE ~ 3.5),
+           person_strike_zone_bottom = case_when(!is.na(person_strike_zone_bottom) ~ person_strike_zone_bottom, TRUE ~ 1.55),
+           in_zone = case_when((plate_z <= person_strike_zone_top & plate_z >= person_strike_zone_bottom & abs(plate_x) <= 0.95) ~ 1, TRUE ~ 0))
 }
 
 heat_map <- function(data, var, title, binary, legend_title)
@@ -1732,4 +1734,29 @@ run_value_table <- function(data, title)
                                         "responsive"), full_width = F, 
                   position = "left", fixed_thead = T) %>%
     footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
+}
+
+pitch_chart_batter_chase <- function(data, title)
+{
+  update_geom_defaults("point",list(size=4))
+  zone <- create_strikezone(data)
+  data2 <- data %>% filter(pitch_name2 != 'null', in_zone == 0, is_swing == 1) 
+  zone + geom_point(data = data2, aes(x = plate_x, y = plate_z, color = pitch_name2)) +
+    guides(colour = guide_legend(override.aes = list(size=3))) + 
+    labs(color = "Pitch Type",
+         title = paste(unique(data$player_name), title)) + 
+    ylab("Feet Above Homeplate") +
+    xlab("Feet From Homeplate (Pitcher's Perspective)") +
+    theme(plot.title=element_text(hjust=0.5,vjust=0,size=17,face = 'bold'),
+          plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 9)) +
+    theme(axis.text.x=element_text(vjust = .5, size=13,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=13,colour="#535353",face="bold")) +
+    theme(axis.title.y=element_text(size=15,colour="#535353",face="bold",vjust=1.5)) +
+    theme(axis.title.x=element_text(size=15,colour="#535353",face="bold",vjust=0)) +
+    theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
+    theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) +
+    theme(panel.background = element_rect(fill = "white")) +
+    facet_grid(~ p_throws) + 
+    theme(strip.text = element_text(face="bold", size=13),
+          strip.background = element_rect(fill="lightblue", colour="black",size=1))
 }

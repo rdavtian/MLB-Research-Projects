@@ -15,8 +15,8 @@ set_up_shiny <- function()
                                     selectInput("user_visual_type","Charts & Tables", choices = c("Choose...","Batter Basic Stats","Spray Chart - All Hits","Spray Chart - All Outs",
                                                                                                   "Spray Chart - Home Hits","Spray Chart - Home Outs",
                                                                                                   "Pitch Chart - Hits","Pitch Chart - Outs","Pitch Chart - SO",
-                                                                                                  "Pitch Chart - Whiffs", "Pitch Chart - Pitch Type", 
-                                                                                                  "Contact Type", "Exit Velocity",
+                                                                                                  "Pitch Chart - Whiffs", "Pitch Chart - Outside Swings",
+                                                                                                  "Pitch Chart - Pitch Type", "Contact Type", "Exit Velocity",
                                                                                                   "Batted Ball Type", "Batted Ball Type by Pitch",
                                                                                                   "IF Shift","OF Shift","Batter Metrics by Pitcher Side",
                                                                                                   "Batter Metrics by Pitch Type","Whiff Rates"))
@@ -135,6 +135,11 @@ set_up_shiny <- function()
         {
           output$plot6 <- renderPlot({pitch_chart_batter(hitter_whiffs, title = paste0("Whiffs by Location ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot6")
+        }
+        else if (input$user_visual_type == "Pitch Chart - Outside Swings" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
+        {
+          output$plot7 <- renderPlot({pitch_chart_batter_chase(hitter, title = paste0("Out of Zone Swings by Location ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          plotOutput("plot7")
         }
         else if (input$user_visual_type == "Pitch Chart - Pitch Type" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
         {
