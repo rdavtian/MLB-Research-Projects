@@ -181,13 +181,22 @@ create_strikezone <- function(data)
   x <- c(-.9,.9,.9,-.9,-.9)
   if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
   {
-    z <- c(unique(data$person_strike_zone_bottom),unique(data$person_strike_zone_bottom),
-           unique(data$person_strike_zone_top), unique(data$person_strike_zone_top),
-           unique(data$person_strike_zone_bottom))
+    if (length(unique(data$batter)) == 1)
+    {
+      z <- c(unique(data$person_strike_zone_bottom),unique(data$person_strike_zone_bottom),
+             unique(data$person_strike_zone_top), unique(data$person_strike_zone_top),
+             unique(data$person_strike_zone_bottom))
+    } else {
+      z <- c(1.55,1.55,3.5,3.5,1.55)
+    }  
   }
   else 
   {
     z <- c(1.55,1.55,3.5,3.5,1.55)
+  }
+  if (unique(data$player_name) == "Jose Altuve")
+  {
+    z <- c(1.2,1.2,3.15,3.15,1.2)
   }
   sz <- as.data.frame(tibble(x,z)) 
   g <- ggplot() + geom_path(data = sz, aes(x=x, y=z), lwd = 1.5) +
@@ -558,7 +567,10 @@ query_hitter <- function(Full_Name)
   #index <- as.numeric(rownames(hitters_list[(hitters_list$Last == Last_Name) & hitters_list$First == First_Name,]))
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
-  
+  if (Full_Name == "JT Chargois")
+  {
+    player_id <- 608638
+  }
   hitter_year <- list()
   for (year in start_year:end_year)
   {
@@ -590,7 +602,6 @@ query_pitcher <- function(Full_Name)
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
     Last_Name <- strsplit(Full_Name, split = " ")[[1]][3]
     Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
-    
   } else {
     First_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[1]
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
@@ -600,11 +611,14 @@ query_pitcher <- function(Full_Name)
   #index <- as.numeric(rownames(pitchers_list[(pitchers_list$Last == Last_Name) & pitchers_list$First == First_Name,]))
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
+  if (Full_Name == "JT Chargois")
+  {
+    player_id <- 608638
+  }
   if (player_id[1] == 671277)
   {
     player_id <- player_id[2]
   }
-  
   pitcher_year <- list()
   for (year in start_year:end_year)
   {
@@ -1015,9 +1029,9 @@ pitcher_stats <- function(data, title)
 pitcher_basic_stats <- function(data, title)
 {
   #IP <- data %>%
-    #select(game_date, outs_when_up, inning) %>% distinct() %>%
-    #group_by(game_date) %>% 
-    #summarise(n = n() / 3, .groups = "drop") %>% select(n) %>% sum()
+  #select(game_date, outs_when_up, inning) %>% distinct() %>%
+  #group_by(game_date) %>% 
+  #summarise(n = n() / 3, .groups = "drop") %>% select(n) %>% sum()
   
   IP <- round(sum(data$is_out) / 3,2)
   
@@ -1442,11 +1456,22 @@ heat_map <- function(data, var, title, binary, legend_title)
 {
   if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
   {
-    topKzone <- unique(data$person_strike_zone_top)
-    botKzone <- unique(data$person_strike_zone_bottom)
+    if (length(unique(data$batter)) == 1)
+    {
+      topKzone <- unique(data$person_strike_zone_top)
+      botKzone <- unique(data$person_strike_zone_bottom)
+    } else {
+      topKzone <- 3.5
+      botKzone <- 1.55
+    }
   } else {
     topKzone <- 3.5
     botKzone <- 1.55
+  }
+  if (unique(data$player_name) == "Jose Altuve")
+  {
+    topKzone <- 3.15
+    botKzone <- 1.2
   }
   inKzone <- -0.9
   outKzone <- 0.9
@@ -1536,11 +1561,22 @@ heat_map_rv <- function(data, title, legend_title)
   data <- find_run_value(data)
   if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
   {
-    topKzone <- unique(data$person_strike_zone_top)
-    botKzone <- unique(data$person_strike_zone_bottom)
+    if (length(unique(data$batter)) == 1)
+    {
+      topKzone <- unique(data$person_strike_zone_top)
+      botKzone <- unique(data$person_strike_zone_bottom)
+    } else {
+      topKzone <- 3.5
+      botKzone <- 1.55
+    }
   } else {
     topKzone <- 3.5
     botKzone <- 1.55
+  }
+  if (unique(data$player_name) == "Jose Altuve")
+  {
+    topKzone <- 3.15
+    botKzone <- 1.2
   }
   inKzone <- -0.9
   outKzone <- 0.9
@@ -1601,11 +1637,22 @@ heat_map_rv2 <- function(data, title, legend_title)
   
   if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
   {
-    topKzone <- unique(data$person_strike_zone_top)
-    botKzone <- unique(data$person_strike_zone_bottom)
+    if (length(unique(data$batter)) == 1)
+    {
+      topKzone <- unique(data$person_strike_zone_top)
+      botKzone <- unique(data$person_strike_zone_bottom)
+    } else {
+      topKzone <- 3.5
+      botKzone <- 1.55
+    }
   } else {
     topKzone <- 3.5
     botKzone <- 1.55
+  }
+  if (unique(data$player_name) == "Jose Altuve")
+  {
+    topKzone <- 3.15
+    botKzone <- 1.2
   }
   inKzone <- -0.9
   outKzone <- 0.9
