@@ -183,7 +183,7 @@ set_up_shiny <- function()
         }
         else if (input$user_visual_type == "Batter Metrics by Pitch Type" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
         {
-          output$tbl <- renderText({stats_by_type(hitter, title = paste0("Metrics by Pitch Type ", format(as.Date(input$daterange[1]), "%m/%d/%Y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%Y")))})
+          output$tbl <- renderText({stats_by_pitch_type(hitter, title = paste0("Metrics by Pitch Type ", format(as.Date(input$daterange[1]), "%m/%d/%Y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%Y")))})
           htmlOutput("tbl")
         }
         else if (input$user_visual_type == "Whiff Rates" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
@@ -408,7 +408,7 @@ set_up_shiny <- function()
         }
         else if (input$user_visual_type2 == "Pitcher Metrics by Pitch Type" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")
         {
-          output$tbl <- renderText({stats_by_type(pitcher, title = paste0("Metrics by Pitch Type ", format(as.Date(input$daterange[1]), "%m/%d/%Y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%Y")))})
+          output$tbl <- renderText({stats_by_pitch_type(pitcher, title = paste0("Metrics by Pitch Type ", format(as.Date(input$daterange[1]), "%m/%d/%Y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%Y")))})
           htmlOutput("tbl")
         }
         else if (input$user_visual_type2 == "Whiff Rates" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")

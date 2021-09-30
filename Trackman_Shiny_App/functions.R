@@ -1104,7 +1104,7 @@ pitcher_basic_stats <- function(data, title)
     footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
 }
 
-stats_by_type <- function(data, title)
+stats_by_pitch_type <- function(data, title)
 {
   tab <- data %>% filter(!is.na(events) & pitch_name2 != 'null') %>% 
     group_by(pitch_name2) %>%
@@ -1121,6 +1121,7 @@ stats_by_type <- function(data, title)
               AB = PA - BB - HBP - SF - SB,
               wOBA = round((0.69*BB + 0.72*HBP + 0.89*Single + 1.27*Double + 1.62*Triple + 2.1*HR) / (AB + BB + SF + HBP),3),
               ISO = round(mean(as.numeric(iso_value[events %!in% c("Walk","Sac Bunt", "HBP", "Sac Fly")]), na.rm = T),3),
+              SLG = round((1*Single + 2*Double + 3*Triple + 4*HR) / AB,3),
               xwOBAcon = round(mean(estimated_woba_using_speedangle[is_bip == 1]),3),
               xBA = round(mean(estimated_ba_using_speedangle[events %!in% c("Walk","HBP")]),3),
               BA = round(mean(is_hit[events %!in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
@@ -1128,7 +1129,7 @@ stats_by_type <- function(data, title)
               N = n(), 
               perc_seen = round(N / nrow(data %>% filter(!is.na(events) & pitch_name2 != 'null')),3)*100,
               .groups = 'drop') %>%
-    select(pitch_name2, perc_seen, BA, xBA, ISO, wOBA, xwOBAcon, hard_hit_rate) %>%
+    select(pitch_name2, perc_seen, BA, xBA, SLG, ISO, wOBA, xwOBAcon, hard_hit_rate) %>%
     arrange(-perc_seen) %>%
     rename("Pitch Type" = "pitch_name2", "Hard Hit %" = "hard_hit_rate",
            "Pitch Distribution" = "perc_seen") %>%
