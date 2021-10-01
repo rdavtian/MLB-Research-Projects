@@ -546,12 +546,19 @@ of_shift_usage <- function(data, title)
 
 query_hitter <- function(Full_Name)
 {
-  if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
+  if (grepl('II', Full_Name) == TRUE)
+  {
+    Full_Name <- strsplit(Full_Name, split = " ")[[1]][1:2]
+  } else if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
   {
     First_Name <- str_c(strsplit(Full_Name, split = " ")[[1]][1:2], collapse = " ")
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
     Last_Name <- strsplit(Full_Name, split = " ")[[1]][3]
     Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  } else if (Full_Name %in% c("J.D. Martinez","J.D. Davis","J.P. Crawford","J.T. Realmuto"))
+  {
+    First_Name_Clean <- paste0(substr(Full_Name, 1, 2), " ", substr(Full_Name, 3, 4))
+    Last_Name_Clean <- trimws(paste0(substr(Full_Name, 5, nchar(Full_Name))))
   } else {
     First_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[1]
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
@@ -564,12 +571,18 @@ query_hitter <- function(Full_Name)
     First_Name_Clean <- "Tommy"
     Last_Name_Clean <- "La Stella"
   }
-  #index <- as.numeric(rownames(hitters_list[(hitters_list$Last == Last_Name) & hitters_list$First == First_Name,]))
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
   if (Full_Name == "JT Chargois")
   {
     player_id <- 608638
+  }
+  if (Full_Name == "Michael A. Taylor")
+  {
+    player_id <- 572191
+  } else if (Full_Name == "C.J. Cron")
+  {
+    player_id <- 543068
   }
   hitter_year <- list()
   for (year in start_year:end_year)
@@ -577,12 +590,6 @@ query_hitter <- function(Full_Name)
     hitter_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(year, "-03-25"), end_date = paste0(year, "-10-01"), playerid = player_id)
   }
   hitter_sc <- do.call(rbind, hitter_year)
-  #hitter_19 <- scrape_statcast_savant(start_date = "2019-03-25", end_date = "2019-09-30", playerid = 	player_id)
-  #hitter_20 <- scrape_statcast_savant(start_date = "2020-03-25", end_date = "2020-09-30", playerid = 	player_id)
-  #hitter_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = 	player_id)
-  #hitter <- rbind(hitter_19, hitter_20, hitter_21)
-  #hitter <- rbind(hitter_20, hitter_21)
-  #hitter <- rbind(hitter_21)
   return(list(hitter_sc, player_id))
 }
 
@@ -592,28 +599,47 @@ query_pitcher <- function(Full_Name)
   {
     First_Name_Clean <- "Daniel"
     Last_Name_Clean <- "Ponce de Leon"
+  } else if (Full_Name == "Hyun-Jin Ryu")
+  {
+    First_Name_Clean <- "Hyun Jin"
+    Last_Name_Clean <- "Ryu"
+  } else if (Full_Name == "J. D. Hammer")
+  {
+    Full_Name == "J.D. Hammer"
   } else if (Full_Name == "Kwang-hyun Kim")
   {
     First_Name_Clean <- "Kwang Hyun"
     Last_Name_Clean <- "Kim"
+  } else if (grepl('II', Full_Name) == TRUE)
+  {
+    Full_Name <- strsplit(Full_Name, split = " ")[[1]][1:2]
   } else if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
   {
     First_Name <- str_c(strsplit(Full_Name, split = " ")[[1]][1:2], collapse = " ")
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
     Last_Name <- strsplit(Full_Name, split = " ")[[1]][3]
     Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
+  } else if (Full_Name %in% c("A.J. Alexy","A.J. Minter","J.P. Feyereisen","J.B. Wendelken","J.A. Happ","J.D. Hammer",
+                              "T.J. McFarland"))
+  {
+    First_Name_Clean <- paste0(substr(Full_Name, 1, 2), " ", substr(Full_Name, 3, 4))
+    Last_Name_Clean <- trimws(paste0(substr(Full_Name, 5, nchar(Full_Name))))
   } else {
     First_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[1]
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
     Last_Name <- scan(text = Full_Name, what = "", quiet = TRUE)[2]
     Last_Name_Clean <- stringr::str_remove_all(Last_Name, "[.]")
   }
-  #index <- as.numeric(rownames(pitchers_list[(pitchers_list$Last == Last_Name) & pitchers_list$First == First_Name,]))
+  
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
     filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
   if (Full_Name == "JT Chargois")
   {
     player_id <- 608638
+  }
+  if (Full_Name == "JC Mejia")
+  {
+    player_id <- 650496
   }
   if (player_id[1] == 671277)
   {
@@ -625,12 +651,6 @@ query_pitcher <- function(Full_Name)
     pitcher_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(year, "-03-25"), end_date = paste0(year, "-10-01"), playerid = 	player_id, player_type = "pitcher")
   }
   pitcher_sc <- do.call(rbind, pitcher_year)
-  #pitcher_19 <- scrape_statcast_savant(start_date = "2019-03-25", end_date = "2019-09-30", playerid = player_id, player_type = "pitcher")
-  #pitcher_20 <- scrape_statcast_savant(start_date = "2020-03-25", end_date = "2020-09-30", playerid = player_id, player_type = "pitcher")
-  #pitcher_21 <- scrape_statcast_savant(start_date = "2021-03-25", end_date = "2021-09-30", playerid = player_id, player_type = "pitcher")
-  #pitcher <- rbind(pitcher_19, pitcher_20, pitcher_21)
-  #pitcher <- rbind(pitcher_20, pitcher_21)
-  #pitcher <- rbind(pitcher_21)
   return(list(pitcher_sc, player_id))
 }
 
