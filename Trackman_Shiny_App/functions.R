@@ -549,7 +549,8 @@ query_hitter <- function(Full_Name)
   if (grepl('II', Full_Name) == TRUE)
   {
     Full_Name <- strsplit(Full_Name, split = " ")[[1]][1:2]
-  } else if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
+  } 
+  if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
   {
     First_Name <- str_c(strsplit(Full_Name, split = " ")[[1]][1:2], collapse = " ")
     First_Name_Clean <- stringr::str_remove_all(First_Name, "[.]")
@@ -595,6 +596,15 @@ query_hitter <- function(Full_Name)
 
 query_pitcher <- function(Full_Name)
 {
+  if (Full_Name == "J. D. Hammer")
+  {
+    Full_Name == "J.D. Hammer"
+  }
+  if (grepl('II', Full_Name) == TRUE)
+  {
+    Full_Name <- strsplit(Full_Name, split = " ")[[1]][1:2]
+  }
+  
   if (Full_Name == "Daniel Ponce de")
   {
     First_Name_Clean <- "Daniel"
@@ -603,16 +613,10 @@ query_pitcher <- function(Full_Name)
   {
     First_Name_Clean <- "Hyun Jin"
     Last_Name_Clean <- "Ryu"
-  } else if (Full_Name == "J. D. Hammer")
-  {
-    Full_Name == "J.D. Hammer"
   } else if (Full_Name == "Kwang-hyun Kim")
   {
     First_Name_Clean <- "Kwang Hyun"
     Last_Name_Clean <- "Kim"
-  } else if (grepl('II', Full_Name) == TRUE)
-  {
-    Full_Name <- strsplit(Full_Name, split = " ")[[1]][1:2]
   } else if ((length(strsplit(Full_Name, split = " ")[[1]]) == 3) & (grepl(".", Full_Name, fixed = T) == FALSE))
   {
     First_Name <- str_c(strsplit(Full_Name, split = " ")[[1]][1:2], collapse = " ")
