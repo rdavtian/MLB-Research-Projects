@@ -649,6 +649,10 @@ query_pitcher <- function(Full_Name)
   {
     player_id <- player_id[2]
   }
+  #if (Full_Name == "Luis Garcia")
+  #{
+    #player_id <- 472610
+  #}
   pitcher_year <- list()
   for (year in start_year:end_year)
   {
