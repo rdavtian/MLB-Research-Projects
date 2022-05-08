@@ -240,7 +240,7 @@ pitch_chart_batter <- function(data, title, hits = FALSE, outs = FALSE)
     plot <- zone + geom_point(data = data, aes(x = plate_x, y = plate_z, size = release_speed, color = pitch_name2)) + 
       labs(size = "Pitch Speed", color = "Pitch Type",
            title = paste(unique(data$player_name), title)) + 
-      scale_size(range = c(1,3.8))
+      scale_size(range = c(2,4.8))
   }
   plot +
     #viridis::scale_color_viridis(discrete = TRUE, option = "C") + 
@@ -294,7 +294,7 @@ pitch_chart_pitcher <- function(data, title, hits = FALSE, outs = FALSE)
     plot <- zone + geom_point(data = data, aes(x = plate_x, y = plate_z, size = release_speed, color = pitch_name2)) + 
       labs(size = "Pitch Speed", color = "Pitch Type",
            title = paste(unique(data$player_name), title)) + 
-      scale_size(range = c(1,3.8))
+      scale_size(range = c(2,4.8))
   }
   plot +
     #viridis::scale_color_viridis(discrete = TRUE, option = "C") + 
@@ -426,7 +426,7 @@ pitch_chart_density <- function(data, title)
 pitch_chart_pitch_type <- function(data, title)
 {
   myPalette <- colorRampPalette(rev(RColorBrewer::brewer.pal(11, "Spectral")))
-  update_geom_defaults("point",list(size=2))
+  update_geom_defaults("point",list(size=3.7, alpha = 0.6))
   ranks <- quantile(data$launch_speed, na.rm = T, c(0, 0.5, 1))
   
   zone <- create_strikezone(data)
@@ -674,6 +674,10 @@ query_pitcher <- function(Full_Name, start_year, end_year)
   if (Full_Name == "JT Chargois")
   {
     player_id <- 608638
+  }
+  if (Full_Name == "Vladimir Gutierrez")
+  {
+    player_id <- 661269
   }
   if (Full_Name == "JC Mejia")
   {
@@ -1205,6 +1209,7 @@ stats_by_pitch_type <- function(data, title)
               HR = sum(events %in% c("Home Run")),
               BB = sum(events == "Walk"),
               K = sum(events == "Strike Out"),
+              H = sum(events %in% c("Single","Double","Triple","Home Run")),
               HBP = sum(events == "HBP"),
               Error = sum(events == "Error"),
               SF = sum(events == "Sac Fly"),
@@ -1218,9 +1223,9 @@ stats_by_pitch_type <- function(data, title)
               BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               hard_hit_rate = round(mean(hard_hit[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               N = n(), 
-              perc_seen = round(N / nrow(data %>% filter(!is.na(events) & pitch_name2 != 'null')),3)*100,
+              perc_seen = round(N / nrow(data %>% filter(!is.na(events) & pitch_name2 != 'null', !is.na(pitch_name2), pitch_name2 != "")),3)*100,
               .groups = 'drop') %>%
-    select(pitch_name2, perc_seen, BA, xBA, SLG, ISO, wOBA, xwOBAcon, hard_hit_rate, K) %>%
+    select(pitch_name2, perc_seen, BA, xBA, SLG, ISO, wOBA, xwOBAcon, hard_hit_rate, K, H) %>%
     arrange(-perc_seen) %>%
     rename("Pitch Type" = "pitch_name2", "Hard Hit %" = "hard_hit_rate",
            "Pitch Distribution" = "perc_seen") %>%
@@ -1386,7 +1391,7 @@ release_position <- function(data, title)
   plot1 <- ggplot(data = data) + 
     geom_point(aes(x = release_pos_x, y = release_pos_z, color = pitch_name2)) + 
     labs(color = "Pitch Type",
-         title = paste(unique(data$player_name), title)) + 
+         title = paste(unique(str_split(data$player_name, " "))[[1]][-1], title)) + 
     xlab("Release Side (feet)") + 
     ylab("Release Height (feet)") + labs(color = "Pitch Type") + 
     theme(plot.title = element_text(hjust = 0.5, size=12, face = "bold")) + 
@@ -1430,6 +1435,7 @@ clean_statcast_data <- function(data, start_year, end_year)
     add_team_names(start_year = start_year, end_year = end_year) %>%
     mutate(mlbam_id = data[[2]],
            player_name = case_when(pitcher == 607074 & endsWith(player_name, "n, Carlos") ~ "Rodon, Carlos",
+                                   batter == 643289 & endsWith(player_name, "n, Mauricio") ~ "Dubon, Mauricio",
                                    TRUE ~ player_name),
            plate_x = -plate_x, 
            woba_value = as.numeric(woba_value),
@@ -1615,11 +1621,12 @@ heat_map <- function(data, var, title, binary, legend_title)
     data.predict$Prob <- lp
     
   }
+  min <- min(data.predict$Prob)
+  max <- max(data.predict$Prob)
   ggplot(kZone, aes(x, y)) +
     geom_tile(data=data.predict, 
               aes(plate_x, plate_z, fill = Prob)) +
-    scale_fill_distiller(palette = "Spectral") +
-    #scale_fill_distiller(palette = "Spectral", limits = c(min, max)) +
+    scale_fill_distiller(palette = "Spectral", limits = c(min,max), breaks=seq(round(min,1), round(max,1), (round(max,1) - round(min,1)) / 5)) +
     #geom_path(lwd=1.5, col="black") +
     #add_zone("black") + 
     geom_path(aes(.data$x, .data$y), data=kZone, lwd=1.5, col="black") + 
@@ -1938,4 +1945,138 @@ baseball_reference_scraper <- function(level, stat_type, area, start_year, end_y
     final_df <- rbind(final_df, df)
   }
   return(final_df)
+}
+
+plate_discipline_by_pitch_type <- function(data, title)
+{
+  tab <- data %>%
+    filter(pitch_name2 != "" & pitch_name2 != "null" & !is.na(pitch_name2)) %>% 
+    group_by(pitch_name2) %>% 
+    summarise(`Pitch %` = round(n() / nrow(data) * 100,1),
+              `O-Swing%` = round(sum(is_swing == 1 & in_zone == 0) /  sum(in_zone == 0) * 100,1),
+              `Z-Swing%` = round(sum(is_swing == 1 & in_zone == 1) /  sum(in_zone == 1) * 100,1),
+              `Swing%` = round(sum(is_swing == 1) /  n() * 100,1),
+              `O-Contact%` = round(sum(is_contact == 1 & in_zone == 0) /  sum(in_zone == 0 & is_swing == 1) * 100,1),
+              `Z-Contact%` = round(sum(is_contact == 1 & in_zone == 1) /  sum(in_zone == 1 & is_swing == 1) * 100,1),
+              `Contact%` = round(sum(is_contact == 1) /  sum(is_swing == 1) * 100,1),
+              `Zone%` = round(sum(in_zone == 1) /  n() * 100,1),
+              `SwStr%` = round(sum(is_whiff == 1) /  sum(in_zone == 1 | description %in% c("swinging_strike","called_strike","swinging_strike_blocked","foul","foul_bunt","foul_tip","missed_bunt")) * 100,1),
+              `CStr%`= round(sum(description %in% c("called_strike")) /  n() * 100,1),
+              `CSW%` = round(sum(description %in% c("called_strike","swinging_strike", "swinging_strike_blocked"," missed_bunt")) /  n() * 100,1)) %>% 
+    rename(`Pitch Type` = "pitch_name2") %>% arrange(-`Pitch %`) %>% 
+    mutate_if(is.numeric , tidyr::replace_na, replace = 0)
+  
+  kable(tab, row.names = F) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", 
+                                        "responsive"), full_width = F, 
+                  position = "left", fixed_thead = T) %>%
+    footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
+}
+
+plate_discipline <- function(data, title)
+{
+  tab <- data %>% 
+    summarise(`O-Swing%` = round(sum(is_swing == 1 & in_zone == 0) /  sum(in_zone == 0) * 100,1),
+              `Z-Swing%` = round(sum(is_swing == 1 & in_zone == 1) /  sum(in_zone == 1) * 100,1),
+              `Swing%` = round(sum(is_swing == 1) /  n() * 100,1),
+              `O-Contact%` = round(sum(is_contact == 1 & in_zone == 0) /  sum(in_zone == 0 & is_swing == 1) * 100,1),
+              `Z-Contact%` = round(sum(is_contact == 1 & in_zone == 1) /  sum(in_zone == 1 & is_swing == 1) * 100,1),
+              `Contact%` = round(sum(is_contact == 1) /  sum(is_swing == 1) * 100,1),
+              `Zone%` = round(sum(in_zone == 1) /  n() * 100,1),
+              `SwStr%` = round(sum(is_whiff == 1) /  sum(in_zone == 1 | description %in% c("swinging_strike", "called_strike", "swinging_strike_blocked","foul","foul_bunt","foul_tip","missed_bunt")) * 100,1),
+              `CStr%`= round(sum(description %in% c("called_strike")) /  n() * 100,1),
+              `CSW%` = round(sum(description %in% c("called_strike","swinging_strike", "swinging_strike_blocked"," missed_bunt")) /  n() * 100,1)) %>% 
+    mutate_if(is.numeric , tidyr::replace_na, replace = 0)
+  
+  kable(tab, row.names = F) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", 
+                                        "responsive"), full_width = F, 
+                  position = "left", fixed_thead = T) %>%
+    footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
+}
+
+heat_map_by_pitch_type <- function(data, var, title, binary, legend_title)
+{
+  data <- data %>% filter(!is.na(pitch_name2), pitch_name2 != "", pitch_name2 != "null") %>%
+    ungroup() %>% group_by(pitch_name2) %>% 
+    mutate(`Pitch Number` = n()) %>% 
+    filter(`Pitch Number` >= 20) %>% select(-`Pitch Number`)
+  
+  if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
+  {
+    if (length(unique(data$batter)) == 1)
+    {
+      topKzone <- unique(data$person_strike_zone_top)
+      botKzone <- unique(data$person_strike_zone_bottom)
+    } else {
+      topKzone <- 3.5
+      botKzone <- 1.55
+    }
+  } else {
+    topKzone <- 3.5
+    botKzone <- 1.55
+  }
+  if (unique(data$player_name) == "Jose Altuve")
+  {
+    topKzone <- 3.15
+    botKzone <- 1.2
+  }
+  inKzone <- -0.9
+  outKzone <- 0.9
+  kZone <- data.frame(
+    x=c(inKzone, inKzone, outKzone, outKzone, inKzone),
+    y=c(botKzone, topKzone, topKzone, botKzone, botKzone))
+  
+  if (binary)
+  {
+    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z) + pitch_name2")), family = binomial, data=data)
+    x <- seq(-1.7, 1.7, length.out=50)
+    y <- seq(0.5, 4.5, length.out=50)
+    data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
+                               plate_z = c(outer(x * 0 + 1, y)))
+    data.predict <- data.predict[rep(seq_len(nrow(data.predict)), length(unique(data$pitch_name2))), ]
+    data.predict$pitch_name2 <- sort(rep(unique(data$pitch_name2), 2500))
+    lp <- predict(fit, data.predict)
+    data.predict$Prob <- exp(lp) / (1 + exp(lp))
+  }
+  else {
+    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z) + pitch_name2")), data=data)
+    x <- seq(-1.7, 1.7, length.out=50)
+    y <- seq(0.5, 4.5, length.out=50)
+    data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
+                               plate_z = c(outer(x * 0 + 1, y)))
+    data.predict <- data.predict[rep(seq_len(nrow(data.predict)), length(unique(data$pitch_name2))), ]
+    data.predict$pitch_name2 <- sort(rep(unique(data$pitch_name2), 2500))
+    lp <- predict(fit, data.predict)
+    data.predict$Prob <- lp
+  }
+  min <- min(data.predict$Prob)
+  max <- max(data.predict$Prob)
+  ggplot(kZone, aes(x, y)) +
+    geom_tile(data=data.predict, 
+              aes(plate_x, plate_z, fill = Prob, group = pitch_name2)) +
+    scale_fill_distiller(palette = "Spectral", limits = c(min,max), breaks=seq(round(min,1), round(max,1), (round(max,1) - round(min,1)) / 5)) +
+    #geom_path(lwd=1.5, col="black") +
+    #add_zone("black") + 
+    geom_path(aes(.data$x, .data$y), data=kZone, lwd=1.5, col="black") + 
+    coord_fixed() + ylim(0.5, 4.5) + labs(fill = legend_title) + 
+    ggtitle(paste(unique(data$player_name), title)) + 
+    # unlist(strsplit(unique(data$player_name), " "))[2]
+    xlab("Feet From Homeplate (Pitcher's Perspective)") + 
+    ylab("Feet Above Homeplate") + xlim(-1.7, 1.7) + centertitle() + 
+    theme(panel.background = element_rect(fill = "white")) +
+    theme(plot.title = element_text(color = "black", face = "bold", size = 18)) + 
+    theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) +
+    theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) + 
+    theme(axis.title.y=element_text(size=12,colour="#535353",face="bold",vjust=1.5)) +
+    theme(axis.title.x=element_text(size=12,colour="#535353",face="bold",vjust=0)) +
+    theme(panel.grid.major.y = element_line(color = "#bad2d4", size = .5)) +
+    theme(panel.grid.major.x = element_line(color = "#bdd2d4", size = .5)) + 
+    theme(strip.text = element_text(face="bold", size=13),
+          strip.background = element_rect(fill="lightblue", colour="black",size=1),
+          legend.title = element_text(face = "bold", size = 15),
+          legend.text = element_text(face = "bold", size = 12),
+          legend.key.height= unit(0.7, 'cm'),
+          legend.key.width= unit(0.7, 'cm')) + 
+    facet_grid(~ pitch_name2)
 }
