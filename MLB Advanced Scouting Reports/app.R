@@ -1,4 +1,4 @@
-#setwd("C:/Users/rdavtian/Downloads/MLB Advanced Scouting Reports")
+setwd("C:/Users/rdavtian/Downloads/MLB Advanced Scouting Reports")
 library('baseballr')
 library('ggplot2')
 library('dplyr')
@@ -44,4 +44,3 @@ pitchers_list$name <- ifelse(is.na(pitchers_list$Last) == FALSE, as.character(in
 
 shiny <- set_up_shiny(hitters_list, pitchers_list, start_year, end_year)
 shinyApp(ui = shiny[[1]], server = shiny[[2]])
-#rsconnect::deployApp('C:/Users/rdavtian/Downloads/MLB Advanced Scouting Reports')
