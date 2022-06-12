@@ -5,7 +5,6 @@ account: rdavtian
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6204878
-bundleId: 5861235
+bundleId: 5999818
 url: https://rdavtian.shinyapps.io/mlb_advanced_scouting_reports/
-when: 1651511772.64248
-lastSyncTime: 1651511772.64248
+when: 1655010652.85966
