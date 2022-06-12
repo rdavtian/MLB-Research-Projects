@@ -4,6 +4,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
     titlePanel(h1("Ruslan's MLB Advanced Scouting Reports", align = "center", 
                h3("Keep Either Charts & Tables or Heat Maps as Choose...", 
                   align = "center", style = "font-size:14px;"))),
+    #useWaiter(), # include dependencies
     sidebarLayout(
       sidebarPanel(width=3, 
                    selectInput("user_type_input","Player Type", choices = c("Choose...","Batter","Pitcher")),
@@ -16,6 +17,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
                    conditionalPanel(condition = "input.user_type_input == 'Batter'",
                                     selectInput("user_visual_type","Charts & Tables", choices = c("Choose...","Batter Basic Stats","Spray Chart - All Hits","Spray Chart - All Outs",
                                                                                                   "Spray Chart - Home Hits","Spray Chart - Home Outs",
+                                                                                                  "Spray Chart - Distributions",
                                                                                                   "Pitch Chart - Hits","Pitch Chart - Outs","Pitch Chart - SO",
                                                                                                   "Pitch Chart - Whiffs", "Pitch Chart - Outside Swings",
                                                                                                   "Pitch Chart - Pitch Type", "Contact Type", "Exit Velocity",
@@ -27,7 +29,9 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
                    conditionalPanel(condition = "input.user_type_input == 'Pitcher'",
                                     selectInput("user_visual_type2","Charts & Tables", choices = c("Choose...","Pitcher Basic Stats","Pitch Arsenal",
                                                                                                    "Spray Chart - All Hits","Spray Chart - All Outs",
-                                                                                                   "Spray Chart - Home Hits","Spray Chart - Home Outs","Pitch Chart - Hits",
+                                                                                                   "Spray Chart - Home Hits","Spray Chart - Home Outs",
+                                                                                                   "Spray Chart - Distributions", 
+                                                                                                   "Pitch Chart - Hits",
                                                                                                    "Pitch Chart - Outs","Pitch Chart - SO","Pitch Chart - Whiffs", 
                                                                                                    "Pitch Chart - Pitch Type","Pitch Chart - First Pitch",
                                                                                                    "Pitch Chart - Ahead",  "Pitch Chart - Behind", "Contact Type","Release Points",
@@ -54,7 +58,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
                    dateRangeInput(
                      inputId = "daterange",
                      label = "Select Date Range",
-                     start = as.Date(paste0(start_year, "-04-07")),
+                     start = as.Date(paste0(substr(Sys.Date(), 1, 4), "-04-07")),
                      end = Sys.Date(),
                      min = as.Date(paste0(start_year, "-04-07")),
                      max = Sys.Date(),
@@ -67,6 +71,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
   
   server <- function(input, output, session)
   {
+    #w <- Waiter$new()
     output$startdate <- renderText({
       as.character(input$daterange[1])
     })
@@ -80,9 +85,9 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
     output$plot <- renderUI({
       if (input$user_type_input == "Batter" & input$user_name_input != "Choose...")
       {
-        hitter <- query_hitter(input$user_name_input, start_year, end_year)
+        hitter <- query_hitter(input$user_name_input, as.integer(substr(input$daterange[1], start = 1, stop = 4)), as.integer(substr(input$daterange[2], start = 1, stop = 4)), input$daterange[1], input$daterange[2])
         hitter <- clean_statcast_data(hitter, start_year, end_year)
-        hitter <- hitter %>% filter(game_date >= input$daterange[1], game_date <= input$daterange[2])
+        #hitter <- hitter %>% filter(game_date >= input$daterange[1], game_date <= input$daterange[2])
         hitter_hits <- hitter %>% filter(events %in% c("Home Run","Triple","Double","Single"))
         hitter_outs <- hitter %>% filter(events %in% c("Strike Out","Force Out","Double Play","Field Out","Sac Fly","Sac Bunt"))
         hitter_batted_balls <- hitter %>% filter(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score"))
@@ -90,11 +95,10 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         hitter_whiffs <- hitter %>% filter(description %in% c("swinging_strike_blocked","swinging_strike"))
         hitter_abs <- hitter %>% filter(events %in% c("Strike Out","Field Out","Single","Double",
                                                       "Triple","Home Run","Force Out","Double Play"))
-      }
-      else if (input$user_type_input == "Pitcher" & input$user_name_input2 != "Choose...") {
-        pitcher <- query_pitcher(input$user_name_input2, start_year, end_year)
+      } else if (input$user_type_input == "Pitcher" & input$user_name_input2 != "Choose...") {
+        pitcher <- query_pitcher(input$user_name_input2, as.integer(substr(input$daterange[1], start = 1, stop = 4)), as.integer(substr(input$daterange[2], start = 1, stop = 4)), input$daterange[1], input$daterange[2])
         pitcher <- clean_statcast_data(pitcher, start_year, end_year) 
-        pitcher <- pitcher %>% filter(game_date >= input$daterange[1], game_date <= input$daterange[2])
+        #pitcher <- pitcher %>% filter(game_date >= input$daterange[1], game_date <= input$daterange[2])
         pitcher_hits <- pitcher %>% filter(events %in% c("Home Run","Triple","Double","Single"))
         pitcher_outs <- pitcher %>% filter(events %in% c("Strike Out","Force Out","Double Play","Field Out","Sac Fly","Sac Bunt"))
         pitcher_batted_balls <- pitcher %>% filter(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score"))
@@ -102,8 +106,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         pitcher_whiffs <- pitcher %>% filter(description %in% c("swinging_strike_blocked","swinging_strike"))
         pitcher_abs <- pitcher %>% filter(events %in% c("Strike Out","Field Out","Single","Double",
                                                         "Triple","Home Run","Force Out","Double Play"))
-      }
-      
+      } 
       if (input$user_type_input == "Batter")
       {
         if (input$user_visual_type == "Spray Chart - All Hits" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
@@ -125,6 +128,11 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         {
           output$plot2 <- renderPlot({spray_chart_advanced_home(hitter_outs %>% filter(bb_type != 'null'), title = paste0("Outs Spray Chart ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot2")
+        }
+        else if (input$user_visual_type == "Spray Chart - Distributions" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
+        {
+          output$plot2 <- renderPlot({spray_chart_distributions(hitter, title = paste0(format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          div(plotOutput("plot2", height=575, width = 575), align="center")
         }
         else if (input$user_visual_type == "Pitch Chart - Hits" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
         {
@@ -163,7 +171,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         }
         else if (input$user_visual_type == "Exit Velocity" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
         {
-          output$plot8 <- renderPlot({exit_velocity(hitter_batted_balls, title = paste0("Distribution of Exit Velocity ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot8 <- renderPlot({exit_velocity(hitter_batted_balls, start_year = as.integer(substr(input$daterange[1], start = 1, stop = 4)), end_year = as.integer(substr(input$daterange[2], start = 1, stop = 4)), title = paste0("Distribution of Exit Velocity ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot8")
         }
         else if (input$user_visual_type == "Batted Ball Type" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
@@ -183,7 +191,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         }
         else if (input$user_visual_type == "Batter Basic Stats" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
         {
-          output$tbl <- renderText({batter_basic_stats(hitter, title = paste0("Overall Stats ", format(as.Date(input$daterange[1]), "%m/%d/%Y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%Y")))})
+          output$tbl <- renderText({batter_basic_stats(hitter, start_year = as.integer(substr(input$daterange[1], start = 1, stop = 4)), end_year = as.integer(substr(input$daterange[2], start = 1, stop = 4)),title = paste0("Overall Stats ", format(as.Date(input$daterange[1]), "%m/%d/%Y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%Y")))})
           htmlOutput("tbl")
         }
         else if (input$user_visual_type == "Batter Metrics by Pitcher Side" & input$user_name_input != "Choose..." & input$user_heat_input == "Choose...")
@@ -291,7 +299,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         else if (input$user_heat_input == "Spray Angle" & input$user_name_input != "Choose..." & input$user_visual_type == "Choose...")
         {
           hitter2 <- setup_inplay(hitter)
-          output$plot29 <- renderPlot({heat_map(hitter2, var = "spray_angle", binary = F, legend_title = "Spray Angle", title = paste0("Spray Angle ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot29 <- renderPlot({heat_map(hitter2, var = "phi", binary = F, legend_title = "Spray Angle", title = paste0("Spray Angle ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot29")
         }
         else if (input$user_heat_input == "wOBA" & input$user_name_input != "Choose..." & input$user_visual_type == "Choose...")
@@ -362,6 +370,11 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         {
           output$plot10 <- renderPlot({spray_chart_advanced_home(pitcher_outs %>% filter(bb_type != 'null'), title = paste0("Outs Achieved ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot10")
+        }
+        else if (input$user_visual_type2 == "Spray Chart - Distributions" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")
+        {
+          output$plot10 <- renderPlot({spray_chart_distributions(pitcher, title = paste0(format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          div(plotOutput("plot10", height=575, width = 575), align="center")
         }
         else if (input$user_visual_type2 == "Pitch Chart - Hits" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")
         {
@@ -440,7 +453,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         }
         else if (input$user_visual_type2 == "Exit Velocity" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")
         {
-          output$plot20 <- renderPlot({exit_velocity(pitcher_batted_balls, title = paste0("Distribution of Exit Velocity Against ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot20 <- renderPlot({exit_velocity(pitcher_batted_balls, start_year = as.integer(substr(input$daterange[1], start = 1, stop = 4)), end_year = as.integer(substr(input$daterange[2], start = 1, stop = 4)), title = paste0("Distribution of Exit Velocity ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot20")
         }
         else if (input$user_visual_type2 == "Batted Ball Type" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")
@@ -465,8 +478,10 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         }
         else if (input$user_visual_type2 == "Pitcher Basic Stats" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")
         {
+          #w$show()
           output$tbl <- renderText({pitcher_basic_stats(pitcher, title = paste0("Overall Stats ", format(as.Date(input$daterange[1]), "%m/%d/%Y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%Y")))})
           htmlOutput("tbl")
+          #w$hide()
         }
         else if (input$user_visual_type2 == "Pitcher Metrics by Pitch Type" & input$user_name_input2 != "Choose..." & input$user_heat_input2 == "Choose...")
         {
@@ -578,7 +593,7 @@ set_up_shiny <- function(hitters_list, pitchers_list, start_year, end_year)
         else if (input$user_heat_input2 == "Spray Angle" & input$user_name_input2 != "Choose..." & input$user_visual_type2 == "Choose...")
         {
           pitcher2 <- setup_inplay(pitcher)
-          output$plot37 <- renderPlot({heat_map(pitcher2, var = "spray_angle", binary = F, legend_title = "Spray Angle", title =paste0("Spray Angle ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
+          output$plot37 <- renderPlot({heat_map(pitcher2, var = "phi", binary = F, legend_title = "Spray Angle", title =paste0("Spray Angle ", format(as.Date(input$daterange[1]), "%m/%d/%y"), " to ", format(as.Date(input$daterange[2]), "%m/%d/%y")))})
           plotOutput("plot37")
         }
         else if (input$user_heat_input2 == "wOBA" & input$user_name_input2 != "Choose..." & input$user_visual_type2 == "Choose...")

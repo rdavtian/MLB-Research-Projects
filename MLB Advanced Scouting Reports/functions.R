@@ -1,7 +1,8 @@
-#`%!in%` = Negate(`%in%`)
-player_zones <- read.csv("./player_zones.csv", fileEncoding = 'UTF-8-BOM')
-season <- 2022
-fip_c <- 3.087
+player_zones <- read.csv("https://raw.githubusercontent.com/rdavtian/MLB-Research-Projects/master/MLB%20Advanced%20Scouting%20Reports/player_zones.csv", fileEncoding = 'UTF-8-BOM')
+park_dim <- read.csv("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Advanced Scouting Reports/park_dimensions.csv", fileEncoding = 'UTF-8-BOM')
+season <- substr(Sys.Date(), 1, 4)
+fip_c <- 3.133
+current_year <- substr(Sys.Date(), 1, 4)
 
 rv_non_bip <- CalledStrike::count_values[1:12,]
 names(rv_non_bip) <- c("count","rvnon_bip")
@@ -520,7 +521,7 @@ if_shift_usage <- function(data, title)
               Double = sum(events == "Double"),
               Triple = sum(events == "Triple"),
               HR = sum(events == "Home Run"),
-              AB = PA - BB - HBP - SF - SacBunt - Error,
+              AB = PA - BB - HBP - SF - SacBunt,
               BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               xBA = round(mean(estimated_ba_using_speedangle[!events %in% c("Walk","HBP")]),3),
               BABIP = round(mean(is_hit[(is_bip == 1) & (!events %in% c("Home Run"))], na.rm = T),3),
@@ -556,7 +557,7 @@ of_shift_usage <- function(data, title)
               Double = sum(events == "Double"),
               Triple = sum(events == "Triple"),
               HR = sum(events == "Home Run"),
-              AB = PA - BB - HBP - SF - SacBunt - Error,
+              AB = PA - BB - HBP - SF - SacBunt,
               BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               xBA = round(mean(estimated_ba_using_speedangle[!events %in% c("Walk","HBP")]),3),
               BABIP = round(mean(is_hit[(is_bip == 1) & (!events %in% c("Home Run"))], na.rm = T),3),
@@ -578,7 +579,7 @@ of_shift_usage <- function(data, title)
     footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
 }
 
-query_hitter <- function(Full_Name, start_year, end_year)
+query_hitter <- function(Full_Name, start_year, end_year, start_date, end_date)
 {
   if (grepl('II', Full_Name) == TRUE)
   {
@@ -607,7 +608,7 @@ query_hitter <- function(Full_Name, start_year, end_year)
     Last_Name_Clean <- "La Stella"
   }
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
-    filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
+    filter(birth_year > 1979 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
   if (Full_Name == "JT Chargois")
   {
     player_id <- 608638
@@ -620,15 +621,29 @@ query_hitter <- function(Full_Name, start_year, end_year)
     player_id <- 543068
   }
   hitter_year <- list()
-  for (year in start_year:end_year)
+  if (end_year - start_year == 0)
   {
-    hitter_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(year, "-03-25"), end_date = paste0(year, "-10-01"), playerid = player_id)
+    hitter_year[[end_year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = player_id) 
+  } else if (end_year - start_year == 1)
+  {
+    hitter_year[[end_year - start_year]] <- scrape_statcast_savant(start_date = start_date, end_date = paste0(start_year, "-12-31"), playerid = player_id)
+    hitter_year[[end_year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(end_year, "-04-07"), end_date = end_date, playerid = player_id) 
+  } else 
+  {
+    hitter_year[[end_year - start_year - 1]] <- scrape_statcast_savant(start_date = start_date, end_date = paste0(start_year, "-12-31"), playerid = player_id)
+    hitter_year[[end_year - start_year]] <- scrape_statcast_savant(start_date = paste0(start_year + 1, "-04-01"), end_date = paste0(start_year + 1, "-12-31"), playerid = player_id) 
+    hitter_year[[end_year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(end_year, "-04-01"), end_date = end_date, playerid = player_id) 
   }
-  hitter_sc <- do.call(rbind, hitter_year)
+  #for (year in start_year:end_year)
+  #{
+    #hitter_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = player_id)
+  #}
+  hitter_sc <- do.call(plyr::rbind.fill, hitter_year)
+  hitter_sc$game_date <- as.Date(hitter_sc$game_date, origin = "1970-01-01")
   return(list(hitter_sc, player_id))
 }
 
-query_pitcher <- function(Full_Name, start_year, end_year)
+query_pitcher <- function(Full_Name, start_year, end_year, start_date, end_date)
 {
   if (Full_Name == "J. D. Hammer")
   {
@@ -670,7 +685,7 @@ query_pitcher <- function(Full_Name, start_year, end_year)
   }
   
   player_id <- playerid_lookup(last_name = Last_Name_Clean, first_name = First_Name_Clean) %>% 
-    filter(birth_year > 1975 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
+    filter(birth_year > 1979 & !is.na(mlb_played_first)) %>% pull(mlbam_id)
   if (Full_Name == "JT Chargois")
   {
     player_id <- 608638
@@ -692,11 +707,25 @@ query_pitcher <- function(Full_Name, start_year, end_year)
   #player_id <- 472610
   #}
   pitcher_year <- list()
-  for (year in start_year:end_year)
+  if (end_year - start_year == 0)
   {
-    pitcher_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(year, "-03-25"), end_date = paste0(year, "-10-01"), playerid = 	player_id, player_type = "pitcher")
+    pitcher_year[[end_year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = 	player_id, player_type = "pitcher") 
+  } else if (end_year - start_year == 1)
+  {
+    pitcher_year[[end_year - start_year]] <- scrape_statcast_savant(start_date = start_date, end_date = paste0(start_year, "-12-31"), playerid = 	player_id, player_type = "pitcher")
+    pitcher_year[[end_year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(end_year, "-04-07"), end_date = end_date, playerid = 	player_id, player_type = "pitcher") 
+  } else 
+  {
+    pitcher_year[[end_year - start_year - 1]] <- scrape_statcast_savant(start_date = start_date, end_date = paste0(start_year, "-12-31"), playerid = 	player_id, player_type = "pitcher")
+    pitcher_year[[end_year - start_year]] <- scrape_statcast_savant(start_date = paste0(start_year + 1, "-04-01"), end_date = paste0(start_year + 1, "-12-31"), playerid = 	player_id, player_type = "pitcher") 
+    pitcher_year[[end_year - start_year + 1]] <- scrape_statcast_savant(start_date = paste0(end_year, "-04-01"), end_date = end_date, playerid = 	player_id, player_type = "pitcher") 
   }
-  pitcher_sc <- do.call(rbind, pitcher_year)
+  #for (year in start_year:end_year)
+  #{
+    #pitcher_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = 	player_id, player_type = "pitcher")
+  #}
+  pitcher_sc <- do.call(plyr::rbind.fill, pitcher_year)
+  pitcher_sc$game_date <- as.Date(pitcher_sc$game_date, origin = "1970-01-01")
   return(list(pitcher_sc, player_id))
 }
 
@@ -726,7 +755,7 @@ spray_chart <- function(data, title)
 
 pitch_arsenal <- function(data, title)
 {
-  pitch_distr <- data %>% filter(pitch_name2 != 'null') %>%
+  pitch_distr <- data %>% filter(pitch_name2 != 'null', pitch_name2 != "", !is.na(pitch_name2)) %>%
     group_by(pitch_name2) %>% 
     summarize(n = n(), .groups = 'drop') %>%
     mutate(total = sum(n)) %>%
@@ -783,7 +812,7 @@ contact_chart <- function(data, title)
 pitch_velocity <- function(data, title)
 {
   mean_speed_by_pitchtype <- data %>% 
-    filter(pitch_name2 != 'null') %>%
+    filter(pitch_name2 != 'null', pitch_name2 != "", !is.na(pitch_name2)) %>%
     group_by(pitch_name2) %>%
     mutate(mean_speed_pitch = round(mean(release_speed, na.rm = T), 1))
   min <- as.numeric(floor(quantile(mean_speed_by_pitchtype$release_speed, na.rm = T, c(0.01, 0.99))[1] / 1) * 1)
@@ -796,7 +825,7 @@ pitch_velocity <- function(data, title)
     labs(color = "Pitch Type",
          title = paste(unique(data$player_name), title)) + 
     guides(fill=guide_legend(title="Pitch Type")) + 
-    geom_label(data=mean_speed_by_pitchtype, aes(x=mean_speed_pitch, y=0.3, label=mean_speed_pitch), colour = "black", nudge_x = 0.4, fontface = 2) + 
+    geom_label(data=mean_speed_by_pitchtype, aes(x=mean_speed_pitch, y=0.3, label=mean_speed_pitch), colour = "black", nudge_x = 0.7, fontface = 2) + 
     theme(strip.background = element_blank(),
           strip.text.y = element_blank()) + 
     geom_vline(aes(xintercept = mean_speed_pitch), size = 1.3) + 
@@ -850,11 +879,20 @@ pitch_movement <- function(data, title)
   update_geom_defaults("point",list(size=3))
   data2 <- data %>% filter(pitch_name2 != 'null') %>%
     filter(pfx_x < 25 & pfx_x > -25) %>%
-    filter(pfx_z < 30 & pfx_z > -30)
+    filter(pfx_z < 30 & pfx_z > -30) %>%
+    group_by(pitch_name2) %>% 
+    mutate(`1st percentile pfx_x` = quantile(pfx_x, 0.01),
+           `99th percentile pfx_x` = quantile(pfx_x, 0.99),
+           `1st percentile pfx_z` = quantile(pfx_z, 0.01),
+           `99th percentile pfx_z` = quantile(pfx_z, 0.99)) %>% 
+    filter(pfx_x > `1st percentile pfx_x`, pfx_x < `99th percentile pfx_x`,
+           pfx_z > `1st percentile pfx_z`, pfx_z < `99th percentile pfx_z`)
+  
   ggplot(data = data2) + 
     geom_point(aes(x = pfx_x, y = pfx_z, color = pitch_name2)) +
     scale_x_continuous(limits = c(-25, 25), breaks = seq(-25, 25, by = 5)) + 
-    scale_y_continuous(limits = c(-25, 25), breaks = seq(-25, 25, by = 5)) + 
+    scale_y_continuous(limits = c(-25, 25), breaks = seq(-25, 25, by = 5)) +
+    geom_encircle(aes(x = pfx_x, y = pfx_z, group = pitch_name2, fill = pitch_name2), alpha = 0.4) + 
     #scale_x_continuous(breaks = round(seq(round(min(data$pfx_x, na.rm = T), -1), round(max(data$pfx_x, na.rm = T), -1), by = 5),1)) +
     #scale_y_continuous(breaks = round(seq(round(min(data$pfx_z, na.rm = T), -1), round(max(data$pfx_z, na.rm = T), -1), by = 5),1)) +
     xlab("Horizontal Break (Inches) Pitcher's Perspective") + ylab("Vertical Break (Inches)") + 
@@ -863,18 +901,19 @@ pitch_movement <- function(data, title)
     theme(axis.text.y=element_text(size=15,colour="#535353",face="bold")) + 
     theme(axis.title.y=element_text(size=15,colour="#535353",face="bold",vjust=1.5)) + 
     theme(axis.title.x=element_text(size=15,colour="#535353",face="bold",vjust=0),
-          legend.title = element_text(face = "bold", size = 15),
-          legend.text = element_text(face = "bold", size = 12),
-          legend.key.height= unit(0.7, 'cm'),
-          legend.key.width= unit(0.7, 'cm')) + 
+          legend.title = element_text(face = "bold", size = 18),
+          legend.text = element_text(face = "bold", size = 15),
+          legend.key.height= unit(0.8, 'cm'),
+          legend.key.width= unit(0.8, 'cm')) + 
     labs(color = "Pitch Type",
          title = paste(unique(data$player_name), title)) + 
     guides(fill=guide_legend(title="Pitch Type")) + 
-    geom_vline(aes(xintercept = 0), size = 1.3) + 
-    geom_hline(aes(yintercept = 0), size = 1.3)
+    guides(fill = "none") + 
+    geom_vline(aes(xintercept = 0), size = 1.6) + 
+    geom_hline(aes(yintercept = 0), size = 1.6)
 }
 
-exit_velocity <- function(data, title)
+exit_velocity <- function(data, title, start_year, end_year)
 {
   min_ls <- round(min(data$launch_speed, na.rm = T), -1)
   max_ls <- max(data$launch_speed, na.rm = T)
@@ -906,7 +945,7 @@ exit_velocity <- function(data, title)
 whiff_by_pitch_type <- function(data, title)
 {
   whiff <- data %>% filter(is_swing == 1) %>%
-    filter(pitch_name2 != 'null') %>%
+    filter(pitch_name2 != 'null', pitch_name2 != "", !is.na(pitch_name2)) %>%
     group_by(pitch_name2) %>%
     summarise(whiffs = sum(description == "swinging_strike" | description == "swinging_strike_blocked"),
               N = n(), 
@@ -996,10 +1035,20 @@ batted_ball_by_pitch_type <- function(data, title)
     footnote(symbol = paste(unique(data$player_name), title), title_format = c("bold","underline"))
 }
 
-batter_basic_stats <- function(data, title)
+batter_basic_stats <- function(data, title, start_year, end_year)
 {
+  team_batting <- baseball_reference_scraper(level = "team", stat_type = "standard", 
+                                             area = "batting", start_year = start_year, 
+                                             end_year = end_year) %>% 
+    mutate(OBP = as.numeric(OBP),
+           SLG = as.numeric(SLG)) %>% 
+    summarise(lgOBP = mean(OBP),
+              lgSLG = mean(SLG))
+  lgOBP <- team_batting$lgOBP
+  lgSLG <- team_batting$lgSLG
+  
   tab <- data %>% filter(!is.na(events)) %>%
-    mutate(on_base = case_when(events %in% c("Single","Double","Triple","Home Run","Error","Walk","HBP") ~ 1,
+    mutate(on_base = case_when(events %in% c("Single","Double","Triple","Home Run","Walk","HBP") ~ 1,
                                TRUE ~ 0),
            total_bases = case_when(events == "Single" ~ 1,
                                    events == "Double" ~ 2,
@@ -1017,8 +1066,9 @@ batter_basic_stats <- function(data, title)
               Double = sum(events == "Double"),
               Triple = sum(events == "Triple"),
               HR = sum(events == "Home Run"),
-              AB = PA - BB - HBP - SF - SacBunt - Error,
-              BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
+              AB = PA - BB - HBP - SF - SacBunt,
+              BA = round(sum(events %in% c("Single","Double","Triple","Home Run")) / AB, 3),
+              #BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt","Error")]),3),
               OBP = round(sum(on_base, na.rm = T) / PA, 3),
               SLG = round(sum(total_bases, na.rm = T) / AB, 3),
               OPS = OBP + SLG, 
@@ -1030,8 +1080,12 @@ batter_basic_stats <- function(data, title)
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
+              xBA = round(mean(estimated_ba_using_speedangle[!events %in% c("Walk","HBP")]),3),
+              `Hard Hit %` = round(mean(hard_hit[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
+              `Barrel %` = round(mean(is_barrel[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(PA, AB, BA, OBP, SLG, OPS, OPS_plus, wOBA, xwOBAcon, BABIP, HR, H, K, K., BB, BB.) %>%
+    select(PA, AB, BA, OBP, SLG, OPS, OPS_plus, wOBA, xBA, xwOBAcon, BABIP, HR, H, K, K., BB, BB.,
+           `Hard Hit %`,`Barrel %`) %>%
     distinct() %>% 
     rename("BB%" = "BB.", "K%" = "K.", "OPS+" = "OPS_plus")
   
@@ -1059,7 +1113,7 @@ batter_stats <- function(data, title)
               SF = sum(events == "Sac Fly"),
               Error = sum(events == "Error"),
               SacBunt = sum(events == "Sac Bunt"),
-              AB = PA - BB - HBP - SF - SacBunt - Error,
+              AB = PA - BB - HBP - SF - SacBunt,
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               BABIP = round(mean(is_hit[(is_bip == 1) & (!events %in% c("Home Run"))], na.rm = T),3),
@@ -1069,8 +1123,9 @@ batter_stats <- function(data, title)
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
               hard_hit_rate = round(mean(hard_hit[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
+              `Barrel %` = round(mean(is_barrel[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(p_throws, prop, BA, xBA, wOBA, xwOBAcon, BABIP, K., BB., hard_hit_rate) %>%
+    select(p_throws, prop, BA, xBA, wOBA, xwOBAcon, BABIP, K., BB., hard_hit_rate, `Barrel %`) %>%
     rename("BB%" = "BB.", "K%" = "K.", "Pitcher" = "p_throws", 
            "% Faced" = "prop", "Hard Hit %" = "hard_hit_rate")
   
@@ -1098,7 +1153,7 @@ pitcher_stats <- function(data, title)
               SF = sum(events == "Sac Fly"),
               Error = sum(events == "Error"),
               SacBunt = sum(events == "Sac Bunt"),
-              AB = PA - BB - HBP - SF - SacBunt - Error,
+              AB = PA - BB - HBP - SF - SacBunt,
               BIP = sum(description %in% c("hit_into_play_no_out","hit_into_play","hit_into_play_score")),
               BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               BABIP = round(mean(is_hit[(is_bip == 1) & (!events %in% c("Home Run"))], na.rm = T),3),
@@ -1108,8 +1163,9 @@ pitcher_stats <- function(data, title)
               K. = round(K / PA, 3) * 100,
               BB. = round(BB / PA, 3) * 100,
               hard_hit_rate = round(mean(hard_hit[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
+              `Barrel %` = round(mean(is_barrel[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(stand, prop, BA, xBA, wOBA, xwOBAcon, BABIP, K., BB., hard_hit_rate) %>%
+    select(stand, prop, BA, xBA, wOBA, xwOBAcon, BABIP, K., BB., hard_hit_rate, `Barrel %`) %>%
     rename("BB%" = "BB.", "K%" = "K.", "Batter" = "stand", 
            "% Faced" = "prop", "Hard Hit %" = "hard_hit_rate")
   
@@ -1163,7 +1219,6 @@ pitcher_basic_stats <- function(data, title)
               HBP = sum(events == "HBP"),
               SB = sum(events == "Sac Bunt"),
               AB = PA - BB - HBP - SF - SB,
-              H = sum(events %in% c("Single","Double","Triple","Home Run")),
               Single = sum(events %in% c("Single")),
               Double = sum(events %in% c("Double")),
               Triple = sum(events %in% c("Triple")),
@@ -1186,8 +1241,9 @@ pitcher_basic_stats <- function(data, title)
               BB_per9 = round((BB / IP) * 9,2),
               HR_per9 = round((HR / IP) * 9,2),
               hard_hit_rate = round(mean(hard_hit[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
+              `Barrel %` = round(mean(is_barrel[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               .groups = 'drop') %>%
-    select(IP, ERA, FIP, BA, xBA, wOBA, xwOBAcon, BABIP, K_per9, K., BB_per9, BB., HR_per9, WHIP, hard_hit_rate) %>%
+    select(IP, ERA, FIP, BA, xBA, wOBA, xwOBAcon, BABIP, K_per9, K., BB_per9, BB., HR_per9, WHIP, hard_hit_rate,`Barrel %`) %>%
     rename("BB%" = "BB.", "K%" = "K.","Hard Hit %" = "hard_hit_rate", "K/9" = "K_per9", 
            "BB/9" = "BB_per9", "HR/9" = "HR_per9") 
   
@@ -1207,6 +1263,7 @@ stats_by_pitch_type <- function(data, title)
               Double = sum(events %in% c("Double")),
               Triple = sum(events %in% c("Triple")),
               HR = sum(events %in% c("Home Run")),
+              xBH = sum(events %in% c("Double","Triple","Home Run")),
               BB = sum(events == "Walk"),
               K = sum(events == "Strike Out"),
               H = sum(events %in% c("Single","Double","Triple","Home Run")),
@@ -1222,10 +1279,11 @@ stats_by_pitch_type <- function(data, title)
               xBA = round(mean(estimated_ba_using_speedangle[!events %in% c("Walk","HBP")]),3),
               BA = round(mean(is_hit[!events %in% c("Walk","Sac Fly","HBP","Sac Bunt")]),3),
               hard_hit_rate = round(mean(hard_hit[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
+              `Barrel %` = round(mean(is_barrel[!events %in% c("Walk","Strike Out","HBP")], na.rm = T), 3) * 100,
               N = n(), 
               perc_seen = round(N / nrow(data %>% filter(!is.na(events) & pitch_name2 != 'null', !is.na(pitch_name2), pitch_name2 != "")),3)*100,
               .groups = 'drop') %>%
-    select(pitch_name2, perc_seen, BA, xBA, SLG, ISO, wOBA, xwOBAcon, hard_hit_rate, K, H) %>%
+    select(pitch_name2, perc_seen, BA, xBA, SLG, ISO, wOBA, xwOBAcon, hard_hit_rate,`Barrel %`,K, H, xBH, HR) %>%
     arrange(-perc_seen) %>%
     rename("Pitch Type" = "pitch_name2", "Hard Hit %" = "hard_hit_rate",
            "Pitch Distribution" = "perc_seen") %>%
@@ -1255,8 +1313,8 @@ pitch_usage_by_count <- function(data, title)
     ggtitle(paste(unique(data$player_name), title)) + ylab('Pitch Usage Rate') + 
     theme(plot.title = element_text(hjust = 0.5, vjust=0,size=17,face = 'bold')) + 
     scale_y_continuous(labels=scales::percent) + 
-    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.1), size = 3.5) + 
-    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.11), size = 3.5) + 
+    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.11), size = 4.4) + 
+    geom_text(aes(label = paste0(freq * 100, "%"), y = freq + 0.12), size = 4.41) + 
     theme(axis.text.x=element_text(vjust = .5, size=12,colour="#535353",face="bold")) + 
     theme(axis.text.y=element_text(size=12,colour="#535353",face="bold")) + 
     theme(axis.title.y=element_text(size=15,colour="#535353",face="bold",vjust=1.5)) + 
@@ -1436,6 +1494,7 @@ clean_statcast_data <- function(data, start_year, end_year)
     mutate(mlbam_id = data[[2]],
            player_name = case_when(pitcher == 607074 & endsWith(player_name, "n, Carlos") ~ "Rodon, Carlos",
                                    batter == 643289 & endsWith(player_name, "n, Mauricio") ~ "Dubon, Mauricio",
+                                   batter == 670768 & endsWith(player_name, "lez, Luis") ~ "Gonzalez, Luis",
                                    TRUE ~ player_name),
            plate_x = -plate_x, 
            woba_value = as.numeric(woba_value),
@@ -1562,6 +1621,12 @@ clean_statcast_data <- function(data, start_year, end_year)
            y = 198.27 - hc_y,
            phi = (180 * atan(x/y)) / pi, # 100 * atan(x/y),
            spray_angle = case_when(stand == "RHB" ~ phi, TRUE ~ -phi),
+           spray_angle_bin = case_when((phi <= -30) ~ "(-45,-30]",
+                                       (phi > -30 & phi <= -15) ~ "(-30,-15]",
+                                       (phi > -15 & phi <= 0) ~ "(-15,0]",
+                                       (phi > 0 & phi <= 15) ~ "(0,15]",
+                                       (phi > 15 & phi <= 30) ~ "(15,30]",
+                                       (phi > 30) ~ "(30,45]"),
            spray_direction = case_when(spray_angle < -15 ~ "Pull",
                                        spray_angle > 15 ~ "Oppo",
                                        spray_angle >= -15 & spray_angle <= 15 ~ "Center",
@@ -1836,6 +1901,7 @@ heat_map_rv2 <- function(data, title, legend_title)
 find_run_value <- function(data)
 {
   data2 <- data %>%
+    filter(pitch_name2 != "null", pitch_name2 != "", !is.na(pitch_name2)) %>%
     mutate(count_after = lag(count)) %>% 
     inner_join(rv_non_bip, by = "count") %>%
     rename("rvnon_bip_before" = "rvnon_bip") %>% 
@@ -2079,4 +2145,51 @@ heat_map_by_pitch_type <- function(data, var, title, binary, legend_title)
           legend.key.height= unit(0.7, 'cm'),
           legend.key.width= unit(0.7, 'cm')) + 
     facet_grid(~ pitch_name2)
+}
+
+spray_chart_distributions <- function(data, title)
+{
+  data2 <- data %>% filter(!is.na(spray_angle_bin), is_bip == 1) %>%
+    group_by(player_name, spray_angle_bin) %>% 
+    summarise(Count = n(),
+              Year = paste0(unique(game_year), collapse = "-"),
+              .groups = "drop") %>% 
+    ungroup() %>% 
+    mutate(Total = sum(Count),
+           `Spray %` = Count / Total) %>% 
+    mutate_if(is.numeric, list(~tidyr::replace_na(., 0))) %>% 
+    mutate(`Spray %` = round(`Spray %`, 3) * 100)
+  
+  lines <- data.frame(x_start = c(0, 0, sqrt(90^2 / 2), -sqrt(90^2 / 2)),
+                      x_end = c(-250, 250, 0, 0),
+                      y_start = c(0, 0, sqrt(90^2 / 2), sqrt(90^2 / 2)),
+                      y_end = c(250, 250, sqrt(90^2 / 2) * 2, sqrt(90^2 / 2) * 2))
+  infield <- data.frame(x = c(0, -sqrt(70^2 / 2), 0, sqrt(70^2 / 2)),
+                        y = c(10, sqrt(90^2 / 2), sqrt(80^2 / 2) * 2, sqrt(90^2 / 2)))
+  dirt <- data.frame(x = c(0, -sqrt(120^2 / 2), 0, sqrt(120^2 / 2)),
+                     y = c(0, sqrt(120^2 / 2), sqrt(120^2 / 2) * 2, sqrt(120^2 / 2)))
+  spray_lines <- data.frame(x_end = c(-175, -100, 0, 100, 175),
+                            x_start = rep(0, 5),
+                            y_start = rep(0, 5), 
+                            y_end = c(305,370,404,370,305))
+  
+  ggplot(data = data2) + geom_polygon(data = park_dim, aes(x = X_START, y = Y_START), fill = '#31a354', alpha = 0.3) +
+    geom_polygon(data = dirt, aes(x = x, y = y), fill = 'orange') +
+    geom_polygon(data = infield, aes(x = x, y = y), fill = '#31a354') +
+    geom_segment(data = lines, aes(x = x_start, y = y_start, xend = x_end, yend = y_end), color = "white", size = 1.2) +
+    geom_segment(data = spray_lines, aes(x = x_start, y = y_start, xend = x_end, yend = y_end), color = "black") + 
+    labs(title = paste0(unique(data2$player_name), " Spray Chart ", " (" ,unique(data2$Total)[1], " BIP) ", title)) + 
+    geom_text(x=-160, y=200, label=if_else(paste0(data2 %>% filter(spray_angle_bin == "(-45,-30]") %>% select(`Spray %`) %>% pull(), "%") == "%","0%",paste0(data2 %>% filter(spray_angle_bin == "(-45,-30]") %>% select(`Spray %`) %>% pull(), "%")), size = 8.2) + 
+    geom_text(x=-105, y=250, label=if_else(paste0(data2 %>% filter(spray_angle_bin == "(-30,-15]") %>% select(`Spray %`) %>% pull(), "%") == "%", "0%",paste0(data2 %>% filter(spray_angle_bin == "(-30,-15]") %>% select(`Spray %`) %>% pull(), "%")), size = 8.2) + 
+    geom_text(x=-40, y=280, label=if_else(paste0(data2 %>% filter(spray_angle_bin == "(-15,0]") %>% select(`Spray %`) %>% pull(), "%") == "%","0%",paste0(data2 %>% filter(spray_angle_bin == "(-15,0]") %>% select(`Spray %`) %>% pull(), "%")), size = 8.2) + 
+    geom_text(x=40, y=280, label=if_else(paste0(data2 %>% filter(spray_angle_bin == "(0,15]") %>% select(`Spray %`) %>% pull(), "%") == "%", "0%",paste0(data2 %>% filter(spray_angle_bin == "(0,15]") %>% select(`Spray %`) %>% pull(), "%")), size = 8.2) + 
+    geom_text(x=105, y=250, label=if_else(paste0(data2 %>% filter(spray_angle_bin == "(15,30]") %>% select(`Spray %`) %>% pull(), "%") == "%","0%",paste0(data2 %>% filter(spray_angle_bin == "(15,30]") %>% select(`Spray %`) %>% pull(), "%")), size = 8.2) + 
+    geom_text(x=160, y=200, label=if_else(paste0(data2 %>% filter(spray_angle_bin == "(30,45]") %>% select(`Spray %`) %>% pull(), "%") == "%","0%",paste0(data2 %>% filter(spray_angle_bin == "(30,45]") %>% select(`Spray %`) %>% pull(), "%")), size = 8.2) + 
+    xlim(c(-300, 300)) +
+    ylim(c(-60, 500)) +
+    coord_fixed() +
+    theme_void() + 
+    theme(plot.title=element_text(hjust=0.5,vjust=0,size=20,face = 'bold'),
+          plot.subtitle=element_text(face="plain", hjust= -.015, vjust= .09, colour="#3C3C3C", size = 10))
+  
 }
