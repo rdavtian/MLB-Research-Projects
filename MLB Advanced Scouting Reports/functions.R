@@ -399,7 +399,9 @@ pitch_chart_density <- function(data, title)
   data2 <- data %>% filter(pitch_name2 != 'null', pitch_name2 != "", !is.na(pitch_name2)) %>%
     group_by(pitch_name2) %>% 
     mutate(n = n(),
-           label = paste0(unique(pitch_name2), " (N = ", unique(n), ")"))
+           label = paste0(unique(pitch_name2), " (N = ", unique(n), ")")) %>% 
+  filter(n >= 5)
+  
   zone + geom_density_2d_filled(data = data2, aes(x = plate_x, y = plate_z), alpha = 0.6, contour_var = "ndensity", bins = 9) +
     scale_fill_brewer(type = "seq", palette = "YlOrRd", direction = 1) + 
     labs(color = "Density",
@@ -758,6 +760,7 @@ pitch_arsenal <- function(data, title)
   pitch_distr <- data %>% filter(pitch_name2 != 'null', pitch_name2 != "", !is.na(pitch_name2)) %>%
     group_by(pitch_name2) %>% 
     summarize(n = n(), .groups = 'drop') %>%
+    filter(n >= 5) %>% 
     mutate(total = sum(n)) %>%
     mutate(prop = round(n / total, 3) * 100) %>%
     arrange(-prop) %>%
