@@ -636,7 +636,7 @@ query_hitter <- function(Full_Name, start_year, end_year, start_date, end_date)
   }
   #for (year in start_year:end_year)
   #{
-    #hitter_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = player_id)
+  #hitter_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = player_id)
   #}
   hitter_sc <- do.call(plyr::rbind.fill, hitter_year)
   hitter_sc$game_date <- as.Date(hitter_sc$game_date, origin = "1970-01-01")
@@ -722,7 +722,7 @@ query_pitcher <- function(Full_Name, start_year, end_year, start_date, end_date)
   }
   #for (year in start_year:end_year)
   #{
-    #pitcher_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = 	player_id, player_type = "pitcher")
+  #pitcher_year[[year - start_year + 1]] <- scrape_statcast_savant(start_date = start_date, end_date = end_date, playerid = 	player_id, player_type = "pitcher")
   #}
   pitcher_sc <- do.call(plyr::rbind.fill, pitcher_year)
   pitcher_sc$game_date <- as.Date(pitcher_sc$game_date, origin = "1970-01-01")
@@ -1668,7 +1668,7 @@ heat_map <- function(data, var, title, binary, legend_title)
   
   if (binary)
   {
-    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z)")), family = binomial, data=data)
+    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z)")), method = "REML", family = binomial, data=data)
     x <- seq(-1.7, 1.7, length.out=50)
     y <- seq(0.5, 4.5, length.out=50)
     data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
@@ -1677,7 +1677,7 @@ heat_map <- function(data, var, title, binary, legend_title)
     data.predict$Prob <- exp(lp) / (1 + exp(lp))
   }
   else {
-    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z)")), data=data)
+    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z)")), method = "REML", data=data)
     x <- seq(-1.7, 1.7, length.out=50)
     y <- seq(0.5, 4.5, length.out=50)
     data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
@@ -2066,7 +2066,8 @@ heat_map_by_pitch_type <- function(data, var, title, binary, legend_title)
   data <- data %>% filter(!is.na(pitch_name2), pitch_name2 != "", pitch_name2 != "null") %>%
     ungroup() %>% group_by(pitch_name2) %>% 
     mutate(`Pitch Number` = n()) %>% 
-    filter(`Pitch Number` >= 20) %>% select(-`Pitch Number`)
+    filter(`Pitch Number` >= 20) %>% select(-`Pitch Number`) %>% 
+    mutate(pitch_name2 = as.factor(pitch_name2))
   
   if (!is.na(unique(data$person_strike_zone_top)) & !is.na(unique(data$person_strike_zone_bottom)))
   {
@@ -2095,7 +2096,7 @@ heat_map_by_pitch_type <- function(data, var, title, binary, legend_title)
   
   if (binary)
   {
-    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z) + pitch_name2")), family = binomial, data=data)
+    fit <- gam(as.formula(paste0(var, " ~ ", "pitch_name2 + s(plate_x, plate_z, by = pitch_name2)")), method = "REML", family = binomial, data=data)
     x <- seq(-1.7, 1.7, length.out=50)
     y <- seq(0.5, 4.5, length.out=50)
     data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
@@ -2106,7 +2107,7 @@ heat_map_by_pitch_type <- function(data, var, title, binary, legend_title)
     data.predict$Prob <- exp(lp) / (1 + exp(lp))
   }
   else {
-    fit <- gam(as.formula(paste0(var, " ~ ", "s(plate_x, plate_z) + pitch_name2")), data=data)
+    fit <- gam(as.formula(paste0(var, " ~ ", "pitch_name2 + s(plate_x, plate_z, by = pitch_name2)")),  method = "REML", data=data)
     x <- seq(-1.7, 1.7, length.out=50)
     y <- seq(0.5, 4.5, length.out=50)
     data.predict <- data.frame(plate_x = c(outer(x, y * 0 + 1)),
