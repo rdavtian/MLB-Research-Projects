@@ -1498,6 +1498,7 @@ clean_statcast_data <- function(data, start_year, end_year)
            player_name = case_when(pitcher == 607074 & endsWith(player_name, "n, Carlos") ~ "Rodon, Carlos",
                                    batter == 643289 & endsWith(player_name, "n, Mauricio") ~ "Dubon, Mauricio",
                                    batter == 670768 & endsWith(player_name, "lez, Luis") ~ "Gonzalez, Luis",
+                                   batter == 553993 & endsWith(player_name, "rez, Eugenio") ~ "Suarez, Eugenio",
                                    TRUE ~ player_name),
            plate_x = -plate_x, 
            woba_value = as.numeric(woba_value),
