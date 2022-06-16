@@ -1496,6 +1496,7 @@ clean_statcast_data <- function(data, start_year, end_year)
     add_team_names(start_year = start_year, end_year = end_year) %>%
     mutate(mlbam_id = data[[2]],
            player_name = case_when(pitcher == 607074 & endsWith(player_name, "n, Carlos") ~ "Rodon, Carlos",
+                                   pitcher == 527048 & grepl("rez, Mart", unique(player_name)) ~ "Perez, Martin",
                                    batter == 643289 & endsWith(player_name, "n, Mauricio") ~ "Dubon, Mauricio",
                                    batter == 670768 & endsWith(player_name, "lez, Luis") ~ "Gonzalez, Luis",
                                    batter == 553993 & endsWith(player_name, "rez, Eugenio") ~ "Suarez, Eugenio",
