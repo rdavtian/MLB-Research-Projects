@@ -17,12 +17,14 @@ statcast_exit_velo_barrels <- function(year, player_type, min_pa = "q")
              "Avg EV FB/LD" = "fbld") %>% 
       select(Year, `Player Name`, BIP, `Avg LA`, `LA Sweet Spot%`, `Max EV`, `Avg EV`, `Avg EV FB/LD`,
              `Avg EV GB`,`Max Dist`, `Avg Dist`, `Avg HR Dist`, `EV 95+`, `EV 95+ %`, 
-             Barrels, `Barrel%`, `Barrel/PA`)
+             Barrels, `Barrel%`, `Barrel/PA`) %>% arrange(`Player Name`)
     
   } else {
     df <- statcast_leaderboards(leaderboard = "exit_velocity_barrels", year = year,
                                 player_type = player_type)
-    df <- df %>% 
+    df <- df %>%
+      mutate(anglesweetspotpercent = anglesweetspotpercent / 100,
+             brl_percent = brl_percent / 100) %>%
       rename("Team" = "team", "BIP" = "attempts", "Avg LA" = "avg_hit_angle", 
              "LA Sweet Spot%" = "anglesweetspotpercent", "Max EV" = "max_hit_speed",
              "Avg EV" = "avg_hit_speed", "Max Dist" = "max_distance", 
@@ -32,7 +34,7 @@ statcast_exit_velo_barrels <- function(year, player_type, min_pa = "q")
              "Avg EV FB/LD" = "fbld", "Year" = "year") %>% 
       select(Year, Team, BIP, `Avg LA`, `LA Sweet Spot%`, `Max EV`, `Avg EV`, `Avg EV FB/LD`,
              `Avg EV GB`,`Max Dist`, `Avg Dist`, `Avg HR Dist`, `EV 95+`, `EV 95+ %`, 
-             Barrels, `Barrel%`, `Barrel/PA`)
+             Barrels, `Barrel%`, `Barrel/PA`) %>% arrange(Team)
   }
   return(df)
 }
@@ -53,7 +55,7 @@ statcast_xstat <- function(year, player_type, min_pa = "q")
             "SLG - xSLG" = "est_slg_minus_slg_diff", "wOBA" = "woba", "xwOBA" = "est_woba",
             "wOBA - xwoBA" = "est_woba_minus_woba_diff", "BIP" = "bip") %>% 
       select(Season, `Player Name`, PA, BIP, BA, xBA, `BA - xBA`, SLG, xSLG, `SLG - xSLG`, 
-              wOBA, xwOBA, `wOBA - xwoBA`)
+              wOBA, xwOBA, `wOBA - xwoBA`) %>% arrange(`Player Name`)
   } else {
     df <- statcast_leaderboards(leaderboard = "expected_statistics", year = year,
                                 player_type = player_type)
@@ -66,7 +68,7 @@ statcast_xstat <- function(year, player_type, min_pa = "q")
              "SLG - xSLG" = "est_slg_minus_slg_diff", "wOBA" = "woba", "xwOBA" = "est_woba",
              "wOBA - xwoBA" = "est_woba_minus_woba_diff", "Season" = "year") %>% 
       select(Season, Team, PA, BA, xBA, `BA - xBA`, SLG, xSLG, `SLG - xSLG`, 
-             wOBA, xwOBA, `wOBA - xwoBA`)
+             wOBA, xwOBA, `wOBA - xwoBA`) %>% arrange(Team)
   }
   return(df)
 }
@@ -87,12 +89,12 @@ statcast_pitch_arsenal <- function(year, arsenal_type)
              n_sl = n_sl / 100,
              n_ch = n_ch / 100,
              n_cu = n_cu / 100,
-             n_fs / n_fs / 100) %>% 
+             n_fs = n_fs / 100) %>% 
       select(-n_kn) %>% 
       rename("4-Seam FB%" = "n_ff", "Sinker%" = "n_si", "Cutter%" = "n_fc", 
              "Slider%" = "n_sl", "Changeup%" = "n_ch", "Curveball%" = "n_cu", 
              "Splitter%" = "n_fs") %>% 
-      select(Season, `Player Name`, everything())
+      select(Season, `Player Name`, everything()) %>% arrange(`Player Name`)
     
   } else if (arsenal_type == "avg_spin") {
     df <- df %>%
@@ -100,14 +102,14 @@ statcast_pitch_arsenal <- function(year, arsenal_type)
       rename("4-Seam FB" = "ff_avg_spin", "Sinker" = "si_avg_spin", "Cutter" = "fc_avg_spin", 
              "Slider" = "sl_avg_spin", "Changeup" = "ch_avg_spin", "Curveball" = "cu_avg_spin", 
              "Splitter" = "fs_avg_spin") %>% 
-      select(Season, `Player Name`, everything())
+      select(Season, `Player Name`, everything()) %>% arrange(`Player Name`)
   } else {
     df <- df %>%
       select(-kn_avg_speed) %>% 
       rename("4-Seam FB" = "ff_avg_speed", "Sinker" = "si_avg_speed", "Cutter" = "fc_avg_speed", 
              "Slider" = "sl_avg_speed", "Changeup" = "ch_avg_speed", "Curveball" = "cu_avg_speed", 
              "Splitter" = "fs_avg_speed") %>% 
-      select(Season, `Player Name`, everything())
+      select(Season, `Player Name`, everything()) %>% arrange(`Player Name`)
   }
   return(df)
 }
@@ -130,7 +132,7 @@ statcast_outs_above_average <- function(year, fielding_type, min_field)
              "Success%" = "actual_success_rate_formatted", "Estimated Success%" = 
               "adj_estimated_success_rate_formatted") %>% 
       select(Season, `Player Name`, Team, `Primary Pos`, DRS, OAA, `Success%`, 
-             `Estimated Success%`) %>% arrange(-DRS)
+             `Estimated Success%`) %>% arrange(-DRS, -OAA)
   } else {
     df <- df %>% filter(display_team_name != "---") %>% 
       group_by(display_team_name) %>% 
@@ -138,12 +140,7 @@ statcast_outs_above_average <- function(year, fielding_type, min_field)
                 `Total OAA` = sum(outs_above_average, na.rm = T)) %>%
       mutate(Season = season) %>% 
       rename("Team" = "display_team_name") %>%
-      select(Season, Team, `Total DRS`, `Total OAA`) %>% arrange(-`Total DRS`)
+      select(Season, Team, `Total DRS`, `Total OAA`) %>% arrange(-`Total DRS`, `Total OAA`)
   }
   return(df)
 }
-
-df <- statcast_xstat(year = 2022, player_type = "batter-team")
-#df <- statcast_exit_velo_barrels(year = 2022, player_type = "batter-team")
-#df <- statcast_pitch_arsenal(2022, "n_")
-#df <- statcast_outs_above_average(2022, "player", 0)
