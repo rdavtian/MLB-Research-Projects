@@ -1,0 +1,7 @@
+#setwd("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Pitch Quality Leaderboards/R Shiny")
+source("./functions.R")
+source("./set_up_shiny.R")
+full_preds21 <- read.csv("./pitch_by_pitch21.csv", fileEncoding = 'UTF-8-BOM')
+full_preds22 <- read.csv("./pitch_by_pitch22.csv", fileEncoding = 'UTF-8-BOM')
+shiny <- set_up_shiny(full_preds21, full_preds22)
+shinyApp(ui = shiny[[1]], server = shiny[[2]])
