@@ -1,0 +1,13 @@
+name: mlb_pitch_quality_leaderboards
+title: mlb_pitch_quality_leaderboards
+username:
+account: rdavtian
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6882032
+bundleId: 6253317
+url: https://rdavtian.shinyapps.io/mlb_pitch_quality_leaderboards/
+when: 1661894609.53723
+lastSyncTime: 1661894609.53725
+asMultiple: FALSE
+asStatic: FALSE
