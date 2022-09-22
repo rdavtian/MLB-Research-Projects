@@ -1,4 +1,4 @@
-#setwd("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Pitch Quality Leaderboards/R Shiny")
+#setwd("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/R Shiny")
 source("./functions.R")
 source("./set_up_shiny.R")
 full_preds21 <- read.csv("./pitch_by_pitch21.csv", fileEncoding = 'UTF-8-BOM')

@@ -124,13 +124,13 @@ sds_individual_leaders <- function(data, min_pitches)
               `wOBA/Swing Decision` = round(`RV/100` / 100 * avg_pitchPA * wOBA_scale,4),
               `Num Pitches` = n(),
               Team = max(batter_team)) %>%
-    mutate(`SDS Score` = (`RV/100` - min(`RV/100`, na.rm = T)) / (max(`RV/100`, na.rm = T) - min(`RV/100`, na.rm = T)),
+    mutate(`SDS Score` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (max(`xRV/100`, na.rm = T) - min(`xRV/100`, na.rm = T)),
            `SDS Score` = round((`SDS Score` * 100)),
            `SDS Percentile` = rank(`SDS Score`)/length(`SDS Score`),
            `SDS Percentile` = round(`SDS Percentile` * 100),
            Season = unique(data$game_year)) %>% rename("Batter" = "player_name") %>% 
     select(Season, Team, Batter, `RV/100`, `xRV/100`, `wOBA/Swing Decision`, `SDS Score`, 
-           `SDS Percentile`, `Num Pitches`) %>% arrange(-`RV/100`, -`SDS Percentile`) %>% 
+           `SDS Percentile`, `Num Pitches`) %>% arrange(-`xRV/100`, -`SDS Percentile`) %>% 
     mutate(Batter = sub("(^.*),\\s(.*$)","\\2 \\1", Batter))
   return(data2)
 } 
@@ -159,12 +159,12 @@ sds_team_leaders <- function(data)
     summarise(`RV/100` = round(mean(`RV.100`),3),
               `xRV/100` = round(mean(`xRV.100`),3),
               `wOBA/Swing Decision` = round(`RV/100` / 100 * avg_pitchPA * wOBA_scale,4)) %>%
-    mutate(`SDS Score` = (`RV/100` - min(`RV/100`, na.rm = T)) / (max(`RV/100`, na.rm = T) - min(`RV/100`, na.rm = T)),
+    mutate(`SDS Score` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (max(`xRV/100`, na.rm = T) - min(`xRV/100`, na.rm = T)),
            `SDS Score` = round((`SDS Score` * 100)),
            `SDS Percentile` = rank(`SDS Score`)/length(`SDS Score`),
            `SDS Percentile` = round(`SDS Percentile` * 100),
            Season = unique(data$game_year)) %>% rename("Team" = "batter_team") %>% 
     select(Season, Team, `RV/100`, `xRV/100`, `wOBA/Swing Decision`, `SDS Score`, `SDS Percentile`) %>% 
-    arrange(-`RV/100`, -`SDS Percentile`)
+    arrange(-`xRV/100`, -`SDS Percentile`)
   return(data2)
 } 
