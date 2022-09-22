@@ -7,6 +7,7 @@ library(shiny)
 library(kableExtra)
 library(reactable)
 library(DT)
+library(data.table)
 
 pitch_quality_leaders <- function(data, pitch_type, min_pitches = 100)
 {
