@@ -165,26 +165,34 @@ run_expectancy_table <- function(df, level = "plate appearance")
 
 statcast_scraper <- function(start_date, end_date) 
 {
-  dates <- seq.Date(as.Date(start_date), as.Date(end_date), by = 'week')
-  date_grid <- tibble(start_date = dates, end_date = dates + 6)
-  safe_savant <- safely(scrape_statcast_savant)
-  payload <- map(.x = seq_along(date_grid$start_date), 
-                 ~{message(paste0('\nScraping week of ', date_grid$start_date[.x], '...\n'))
+  dates <- seq.Date(as.Date(start_date), as.Date(end_date), by = 3)
+  date_grid <- tibble(start_date = dates, end_date = dates + 2)
+  df <- list()
+  for (i in 1:nrow(date_grid))
+  {
+    message(paste0('Scraping days ', date_grid$start_date[i], ' through ', date_grid$end_date[i], "\n"))
+    df[[i]] <- scrape_statcast_savant(as.character(date_grid$start_date[i]), as.character(date_grid$end_date[i]), player_type = "batter")
+  }
+  df <- purrr::keep(df, ~nrow(.) > 0)
+  combined <- bind_rows(df)
+  #safe_savant <- safely(scrape_statcast_savant)
+  #payload <- map(.x = seq_along(date_grid$start_date), 
+                 #~{message(paste0('\nScraping week of ', date_grid$start_date[.x], '...\n'))
                    
-                   payload <- safe_savant(start_date = date_grid$start_date[.x], 
-                                          end_date = date_grid$end_date[.x], type = 'pitcher')
+                   #payload <- safe_savant(start_date = date_grid$start_date[.x], 
+                                          #end_date = date_grid$end_date[.x], type = 'pitcher')
                    
-                   return(payload)
-                 })
-  payload_df <- map(payload, 'result')
-  number_rows <- map_df(.x = seq_along(payload_df), 
-                        ~{number_rows <- tibble(week = .x, 
-                                                number_rows = length(payload_df[[.x]]$game_date))}) %>%
-    filter(number_rows > 0) %>%
-    pull(week)
-  payload_df_reduced <- payload_df[number_rows]
-  combined <- payload_df_reduced %>% bind_rows()
-  return(combined)
+                   #return(payload)
+                 #})
+  #payload_df <- map(payload, 'result')
+  #number_rows <- map_df(.x = seq_along(payload_df), 
+                        #~{number_rows <- tibble(week = .x, 
+                                                #number_rows = length(payload_df[[.x]]$game_date))}) %>%
+    #filter(number_rows > 0) %>%
+    #pull(week)
+  #payload_df_reduced <- payload_df[number_rows]
+  #combined <- payload_df_reduced %>% bind_rows()
+  return(combined %>% filter(game_type == "R"))
 }
 
 clean_statcast_data_for_rv <- function(data)
@@ -614,13 +622,12 @@ run_model <- function(data, x_vars, y_var, model_type, tuneLength, plot = TRUE)
   }
 }
 
-pitch_quality_leaders <- function(data, pitch_type, min_pitches)
+pitch_quality_leaders <- function(data, pitch_type, min_pitches = 100)
 {
   if (pitch_type != "all")
   {
     data2 <- data %>% 
       filter(pitch_name3 == !!pitch_type) %>% 
-      inner_join(ids, by = c("pitcher" = "person_id")) %>% 
       group_by(pitcher, person_full_name, pitch_name2) %>% 
       summarize(`Total RV` = round(sum(RV, na.rm = T),2),
                 `RV/100` = round(mean(RV, na.rm = T) * 100,2),
@@ -661,25 +668,109 @@ pitch_quality_leaders <- function(data, pitch_type, min_pitches)
   return(data2)
 }
 
-team_pitch_quality_leaders <- function(data)
+team_pitch_quality_leaders <- function(data, pitch_type)
 {
-  data2 <- data %>%
-    group_by(pitcher_team) %>% 
-    summarize(`Total RV` = round(sum(RV, na.rm = T),2),
-              `RV/100` = round(mean(RV, na.rm = T) * 100,2),
-              `Total xRV` = round(sum(xRV, na.rm = T),2),
-              `xRV/100` = round(mean(xRV, na.rm = T) * 100,2),
-              `Num Pitches` = n(), 
-              Team = max(pitcher_team), .groups = "drop") %>% 
-    arrange(`xRV/100`) %>% 
-    mutate(`xRV/100+` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (min(`xRV/100`, na.rm = T) - max(`xRV/100`, na.rm = T)),
-           `Team Pitch Quality Score` = round((`xRV/100+` * 100) + 100),
-           `Team Pitch Quality Percentile` = rank(`Team Pitch Quality Score`)/length(`Team Pitch Quality Score`),
-           `Team Pitch Quality Percentile` = round(`Team Pitch Quality Percentile` * 100),
-           Season = unique(data$game_year)) %>% 
-    select(Season,Team,`Total RV`,`RV/100`,`Total xRV`,`xRV/100`,
-           `Team Pitch Quality Score`, `Team Pitch Quality Percentile`)
+  if (pitch_type != "all")
+  {
+    data2 <- data %>%
+      filter(pitch_name3 == !!pitch_type) %>% 
+      group_by(pitcher_team) %>% 
+      summarize(`Total RV` = round(sum(RV, na.rm = T),2),
+                `RV/100` = round(mean(RV, na.rm = T) * 100,2),
+                `Total xRV` = round(sum(xRV, na.rm = T),2),
+                `xRV/100` = round(mean(xRV, na.rm = T) * 100,2),
+                `Num Pitches` = n(), 
+                Team = max(pitcher_team), .groups = "drop") %>% 
+      arrange(`xRV/100`) %>% 
+      mutate(`xRV/100+` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (min(`xRV/100`, na.rm = T) - max(`xRV/100`, na.rm = T)),
+             `Team Pitch Quality Score` = round((`xRV/100+` * 100) + 100),
+             `Team Pitch Quality Percentile` = rank(`Team Pitch Quality Score`)/length(`Team Pitch Quality Score`),
+             `Team Pitch Quality Percentile` = round(`Team Pitch Quality Percentile` * 100),
+             Season = unique(data$game_year)) %>% 
+      select(Season,Team,`Total RV`,`RV/100`,`Total xRV`,`xRV/100`,
+             `Team Pitch Quality Score`, `Team Pitch Quality Percentile`)
+  } else {
+    data2 <- data %>%
+      group_by(pitcher_team) %>% 
+      summarize(`Total RV` = round(sum(RV, na.rm = T),2),
+                `RV/100` = round(mean(RV, na.rm = T) * 100,2),
+                `Total xRV` = round(sum(xRV, na.rm = T),2),
+                `xRV/100` = round(mean(xRV, na.rm = T) * 100,2),
+                `Num Pitches` = n(), 
+                Team = max(pitcher_team), .groups = "drop") %>% 
+      arrange(`xRV/100`) %>% 
+      mutate(`xRV/100+` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (min(`xRV/100`, na.rm = T) - max(`xRV/100`, na.rm = T)),
+             `Team Pitch Quality Score` = round((`xRV/100+` * 100) + 100),
+             `Team Pitch Quality Percentile` = rank(`Team Pitch Quality Score`)/length(`Team Pitch Quality Score`),
+             `Team Pitch Quality Percentile` = round(`Team Pitch Quality Percentile` * 100),
+             Season = unique(data$game_year)) %>% 
+      select(Season,Team,`Total RV`,`RV/100`,`Total xRV`,`xRV/100`,
+             `Team Pitch Quality Score`, `Team Pitch Quality Percentile`)
+  }
   return(data2)
+}
+
+pitch_quality_individual_pitches <- function(data, pitcher_name)
+{
+  df <- data %>% 
+    mutate(game_date = as.Date(game_date),
+           player_name = sub("(^.*),\\s(.*$)","\\2 \\1", player_name)) %>% 
+    group_by(pitch_name3) %>% 
+    mutate(`xRV Norm` = (xRV - min(xRV, na.rm = T)) / (min(xRV, na.rm = T) - max(xRV, na.rm = T)),
+           `Pitch Quality Score` = round((`xRV Norm` * 100) + 100),
+           `Pitch Quality Percentile` = rank(`Pitch Quality Score`)/length(`Pitch Quality Score`),
+           `Pitch Quality Percentile` = round(`Pitch Quality Percentile` * 100)) %>% ungroup() %>%
+    mutate(game_date = format(game_date, "%m/%d/%Y"), Inning = paste0(inning_topbot, " ", inning)) %>% 
+    select(game_year, game_date, game_pk, at_bat_number, pitch_number, pitcher_team, batter_team, 
+           person_full_name, player_name, Inning, outs_when_up, count, events, description, 
+           runs_scored, pitch_name2, release_speed, pfx_x, pfx_z, release_spin_rate, attack_zone, 
+           bb_type, launch_speed, launch_angle, hit_distance_sc, is_barrel, 
+           estimated_ba_using_speedangle, estimated_woba_using_speedangle, lin_weight, 
+           wOBA_weight, woba_value, playRE, RV, xRV, `xRV Norm`, `Pitch Quality Score`, 
+           `Pitch Quality Percentile`) %>% 
+    filter(person_full_name == pitcher_name) %>% 
+    rename("Year" = "game_year", "Date" = "game_date", "Pitcher Team" = "pitcher_team", 
+           "Batter Team" = "batter_team", "Pitcher" = "person_full_name", "Runs Scored" = "runs_scored",
+           "Batter" = "player_name", "Outs" = "outs_when_up", "Count" = "count", "Event" = "events",
+           "Pitch Type" = "pitch_name2", "Batted Ball Type" = "bb_type", "wOBA Weight" = "wOBA_weight",
+           "Pitch Speed" = "release_speed", "Exit Velo" = "launch_speed", "Zone" = "attack_zone",
+           "Launch Angle" = "launch_angle", "Hit Distance" = "hit_distance_sc", "Linear Weight" = "lin_weight",
+           "xBA" = "estimated_ba_using_speedangle", "xwOBA" = "estimated_woba_using_speedangle", 
+           "Horz. Mov." = "pfx_x", "Vert. Mov." = "pfx_z", "Spin Rate" = "release_spin_rate",
+           "Description" = "description", "Is Barrel" = "is_barrel", "wOBA Value" = "woba_value") %>% 
+    mutate(`xRV Norm` = `xRV Norm` + 1)
+  return(df %>% arrange(-`Pitch Quality Score`))
+}
+
+get_video_links <- function(data, num_games)
+{
+  games <- data %>% select(game_pk, Date) %>% 
+    mutate(game_date = as.Date(Date, "%m/%d/%Y")) %>% distinct()
+  
+  df <- data.frame()
+  for (i in 1:length(games$game_date))
+  {
+    game_id <- mlb_game_pks(games$game_date[i]) %>% 
+      filter(game_pk %in% games$game_pk) %>% select(game_pk) %>% pull()
+    
+    pbp <- mlb_pbp(game_id) %>% 
+      select(game_pk,at_bat_number = atBatIndex, pitch_number = pitchNumber,play_id = playId) %>%
+      mutate(at_bat_number = as.double(at_bat_number),
+             at_bat_number = at_bat_number + 1,
+             pitch_number = as.double(pitch_number))
+    
+    both <- left_join(data, pbp, by = c('game_pk','at_bat_number','pitch_number')) %>%
+      mutate(video_url = ifelse(!is.na(play_id),paste0('https://baseballsavant.mlb.com/sporty-videos?playId=',play_id),play_id)) %>% 
+      filter(!is.na(video_url)) %>% rename("Video Link" = "video_url")
+    
+    df <- bind_rows(both, df)
+    if (i == num_games)
+    {
+      break
+    }
+  }
+  return(df %>% select(-game_pk, -at_bat_number, -pitch_number, -play_id) %>% 
+           arrange(-`Pitch Quality Score`))
 }
 
 get_sds_weights <- function(data)
@@ -695,12 +786,19 @@ get_sds_weights <- function(data)
 
 sds_individual_leaders <- function(data, min_pitches)
 {
-  avg_pitchPA <- data %>% 
-    arrange(pitcher, game_date, home_team, away_team, inning, desc(inning_topbot), 
-            at_bat_number, pitch_number) %>% 
-    group_by(pitcher, game_date, inning, inning_topbot, at_bat_number) %>% 
-    summarize(`Num Pitches` = max(pitch_number), .groups = "drop") %>% ungroup() %>% 
-    select(`Num Pitches`) %>% pull() %>% mean()
+  if (unique(data$game_year) == 2021)
+  {
+    avg_pitchPA <- 3.908334
+  } else if (unique(data$game_year) == 2022) {
+    avg_pitchPA <- 3.895207
+  }
+  #avg_pitchPA <- data %>% 
+  #arrange(pitcher, game_date, home_team, away_team, inning, desc(inning_topbot), 
+  #at_bat_number, pitch_number) %>% 
+  #group_by(pitcher, game_date, inning, inning_topbot, at_bat_number) %>% 
+  #summarize(`Num Pitches` = max(pitch_number), .groups = "drop") %>% ungroup() %>% 
+  #select(`Num Pitches`) %>% pull() %>% mean()
+  
   wOBA_scale <- fg_guts() %>% 
     filter(season == unique(data$game_year)) %>% 
     select(woba_scale) %>% pull() 
@@ -710,28 +808,36 @@ sds_individual_leaders <- function(data, min_pitches)
     mutate(`Num Pitches` = n()) %>% 
     filter(`Num Pitches` >= min_pitches) %>% 
     summarise(`RV/100` = round(mean(`RV/100`),3),
+              `xRV/100` = round(mean(`xRV/100`),3),
               `wOBA/Swing Decision` = round(`RV/100` / 100 * avg_pitchPA * wOBA_scale,4),
               `Num Pitches` = n(),
               Team = max(batter_team)) %>%
-    mutate(`SDS Score` = (`RV/100` - min(`RV/100`, na.rm = T)) / (max(`RV/100`, na.rm = T) - min(`RV/100`, na.rm = T)),
+    mutate(`SDS Score` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (max(`xRV/100`, na.rm = T) - min(`xRV/100`, na.rm = T)),
            `SDS Score` = round((`SDS Score` * 100)),
            `SDS Percentile` = rank(`SDS Score`)/length(`SDS Score`),
            `SDS Percentile` = round(`SDS Percentile` * 100),
            Season = unique(data$game_year)) %>% rename("Batter" = "player_name") %>% 
-    select(Season, Team, Batter, `RV/100`, `wOBA/Swing Decision`, `SDS Score`, 
-           `SDS Percentile`, `Num Pitches`) %>% arrange(-`RV/100`, -`SDS Percentile`) %>% 
+    select(Season, Team, Batter, `RV/100`, `xRV/100`, `wOBA/Swing Decision`, `SDS Score`, 
+           `SDS Percentile`, `Num Pitches`) %>% arrange(-`xRV/100`, -`SDS Percentile`) %>% 
     mutate(Batter = sub("(^.*),\\s(.*$)","\\2 \\1", Batter))
   return(data2)
 } 
 
 sds_team_leaders <- function(data)
 {
-  avg_pitchPA <- data %>% 
-    arrange(pitcher, game_date, home_team, away_team, inning, desc(inning_topbot), 
-            at_bat_number, pitch_number) %>% 
-    group_by(pitcher, game_date, inning, inning_topbot, at_bat_number) %>% 
-    summarize(`Num Pitches` = max(pitch_number), .groups = "drop") %>% ungroup() %>% 
-    select(`Num Pitches`) %>% pull() %>% mean()
+  if (unique(data$game_year) == 2021)
+  {
+    avg_pitchPA <- 3.908334
+  } else if (unique(data$game_year) == 2022) {
+    avg_pitchPA <- 3.895207
+  }
+  #avg_pitchPA <- data %>% 
+  #arrange(pitcher, game_date, home_team, away_team, inning, desc(inning_topbot), 
+  #at_bat_number, pitch_number) %>% 
+  #group_by(pitcher, game_date, inning, inning_topbot, at_bat_number) %>% 
+  #summarize(`Num Pitches` = max(pitch_number), .groups = "drop") %>% ungroup() %>% 
+  #select(`Num Pitches`) %>% pull() %>% mean()
+  
   wOBA_scale <- fg_guts() %>% 
     filter(season == unique(data$game_year)) %>% 
     select(woba_scale) %>% pull() 
@@ -739,20 +845,21 @@ sds_team_leaders <- function(data)
   data2 <- data %>% 
     group_by(batter_team) %>%
     summarise(`RV/100` = round(mean(`RV/100`),3),
+              `xRV/100` = round(mean(`xRV/100`),3),
               `wOBA/Swing Decision` = round(`RV/100` / 100 * avg_pitchPA * wOBA_scale,4)) %>%
-    mutate(`SDS Score` = (`RV/100` - min(`RV/100`, na.rm = T)) / (max(`RV/100`, na.rm = T) - min(`RV/100`, na.rm = T)),
+    mutate(`SDS Score` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (max(`xRV/100`, na.rm = T) - min(`xRV/100`, na.rm = T)),
            `SDS Score` = round((`SDS Score` * 100)),
            `SDS Percentile` = rank(`SDS Score`)/length(`SDS Score`),
            `SDS Percentile` = round(`SDS Percentile` * 100),
            Season = unique(data$game_year)) %>% rename("Team" = "batter_team") %>% 
-    select(Season, Team, `RV/100`, `wOBA/Swing Decision`, `SDS Score`, `SDS Percentile`) %>% 
-    arrange(-`RV/100`, -`SDS Percentile`)
+    select(Season, Team, `RV/100`, `xRV/100`, `wOBA/Swing Decision`, `SDS Score`, `SDS Percentile`) %>% 
+    arrange(-`xRV/100`, -`SDS Percentile`)
   return(data2)
 } 
 #########################################################################################
-sc <- statcast_scraper("2021-04-01", "2021-10-03")
+sc <- statcast_scraper("2022-04-07", Sys.Date())
 sc_clean <- clean_statcast_data_for_rv(sc)
-run_expectancy_values <- get_run_expectancy_values(2021)
+run_expectancy_values <- get_run_expectancy_values(2022)
 sc_clean2 <- find_run_value(sc_clean, run_expectancy_values)
 df <- clean_statcast_data_for_pitch_mod(sc_clean2)
 lw <- df %>% 
@@ -765,9 +872,10 @@ df <- df %>% inner_join(lw, by = "events3")
 fastball <- df %>% filter(pitch_name3 == "Fastball")
 offspeed <- df %>% filter(pitch_name3 == "Offspeed")
 breaking <- df %>% filter(pitch_name3 == "Breaking Ball")
-fastball2 <- fastball %>% sample_n(150000)
-breaking2 <- breaking %>% sample_n(150000)
-ids <- player_name_player_id(2021)
+fastball2 <- fastball %>% filter(game_date < "2022-07-01")
+breaking2 <- breaking %>% filter(game_date < "2022-07-01")
+offspeed2 <- offspeed %>% filter(game_date < "2022-07-01")
+ids <- player_name_player_id(2022)
 
 x_vars <- c("release_speed","pfx_x","pfx_z","release_pos_x","release_pos_z", 
             "release_extension","release_spin_rate","spin_axis","plate_x","plate_z",
@@ -858,7 +966,7 @@ ggplot(data = br[[2]], aes(x = !! y_var2)) +
   scale_x_continuous(limits = c(-1, 1), breaks = seq(-1, 1, by = 0.5)) 
 ###########################################################################################
 # Offspeed
-off <- run_model(offspeed, x_vars, y_var, "ranger", 2, TRUE)
+off <- run_model(offspeed2, x_vars, y_var, "ranger", 2, TRUE)
 off[[3]]
 offspeed$xRV <- predict(off[[1]], offspeed)
 
@@ -899,29 +1007,22 @@ ggplot(data = off[[2]], aes(x = !! y_var2)) +
 ####################################################################################
 full_preds <- rbind(fastball, breaking, offspeed) %>% inner_join(ids, by = c("pitcher" = "person_id"))
 full_preds <- get_sds_weights(full_preds)
-write.csv(full_preds, "C:\\Users\\rusla\\OneDrive\\MLBAnalyticsJobs\\MLB Pitch Quality Leaderboards\\R Shiny\\pitch_by_pitch22.csv", row.names = FALSE)
+write.csv(full_preds, "C:\\Users\\rusla\\OneDrive\\MLBAnalyticsJobs\\MLB Swing Decision & Pitch Quality Leaderboards\\R Shiny\\pitch_by_pitch22.csv", row.names = FALSE)
 
 
 round(sqrt(mean((full_preds[,y_var] %>% pull() - full_preds$xRV)^2)),3)
 round(sd(full_preds$lin_weight),3)
 
-team_pitch_quality_leaders(full_preds) %>% View()
+team_pitch_quality_leaders(full_preds, "all") %>% View()
 pitch_quality_leaders(full_preds, "Fastball", 300) %>% View() filter(Team == "Giants") %>% View()
 pitch_quality_leaders(full_preds, "Breaking Ball", 200) %>% filter(Team == "Giants") %>% View()
 pitch_quality_leaders(full_preds, "Offspeed", 300) %>% filter(Team == "Giants") %>% View()
 pitch_quality_leaders(full_preds, "all", 200) %>% View()
-sds_individual_leaders(full_preds, 200) %>% View()
+sds_individual_leaders(full_preds, 500) %>% View()
 sds_team_leaders(full_preds) %>% View()
 
-full_preds %>%
-  inner_join(ids, by = c("pitcher" = "person_id")) %>% 
-  group_by(pitch_name3) %>% 
-  mutate(`xRV+` = (xRV - min(xRV, na.rm = T)) / (min(xRV, na.rm = T) - max(xRV, na.rm = T)),
-         `Pitch Quality Score` = round((`xRV+` * 100) + 100),
-         `Pitch Quality Percentile` = rank(`Pitch Quality Score`)/length(`Pitch Quality Score`),
-         `Pitch Quality Percentile` = round(`Pitch Quality Percentile` * 100)) %>% 
-  #select(-`xRV+`) %>% filter(events3 %in% c("Home Run"), in_zone == 0) %>% arrange(-`Pitch Quality Score`)%>% 
-  #View()
-  #filter(person_full_name == "Kevin Gausman") %>% View()
-  filter(home_team == "LAD", away_team == "SF", player_name == "Bellinger, Cody", 
-         events == "Home Run") %>% View() 
+
+sort(unique(full_preds22$person_full_name))
+test <- pitch_quality_individual_pitches(full_preds22, "Sam Long")
+test2 <- get_video_links(test, length(unique(test$game_pk)))
+##############################################################################################
