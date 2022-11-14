@@ -1,4 +1,4 @@
-# MLB Adavnced Scouting Reports
+# MLB Advanced Scouting Reports
 
 •	Repo to build R Shiny App meant for advanced scouting and player evalutions for hitters and pitchers
 
