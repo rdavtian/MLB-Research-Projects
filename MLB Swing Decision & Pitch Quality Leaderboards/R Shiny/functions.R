@@ -104,7 +104,9 @@ sds_individual_leaders <- function(data, min_pitches)
     avg_pitchPA <- 3.908334
   } else if (unique(data$game_year) == 2022) {
     avg_pitchPA <- 3.895207
-  }
+  } else if (unique(data$game_year) == 2023) {
+    avg_pitchPA <- 3.925402
+  } 
   #avg_pitchPA <- data %>% 
     #arrange(pitcher, game_date, home_team, away_team, inning, desc(inning_topbot), 
             #at_bat_number, pitch_number) %>% 
@@ -120,8 +122,8 @@ sds_individual_leaders <- function(data, min_pitches)
     group_by(player_name) %>%
     mutate(`Num Pitches` = n()) %>% 
     filter(`Num Pitches` >= min_pitches) %>% 
-    summarise(`RV/100` = round(mean(`RV.100`),3),
-              `xRV/100` = round(mean(`xRV.100`),3),
+    summarise(`RV/100` = round(mean(`RV/100`),3),
+              `xRV/100` = round(mean(`xRV/100`),3),
               `wOBA/Swing Decision` = round(`RV/100` / 100 * avg_pitchPA * wOBA_scale,4),
               `Num Pitches` = n(),
               Team = max(batter_team)) %>%
@@ -143,7 +145,9 @@ sds_team_leaders <- function(data)
     avg_pitchPA <- 3.908334
   } else if (unique(data$game_year) == 2022) {
     avg_pitchPA <- 3.895207
-  }
+  } else if (unique(data$game_year) == 2023) {
+    avg_pitchPA <- 3.925402
+  } 
   #avg_pitchPA <- data %>% 
     #arrange(pitcher, game_date, home_team, away_team, inning, desc(inning_topbot), 
             #at_bat_number, pitch_number) %>% 
@@ -157,8 +161,8 @@ sds_team_leaders <- function(data)
   
   data2 <- data %>% 
     group_by(batter_team) %>%
-    summarise(`RV/100` = round(mean(`RV.100`),3),
-              `xRV/100` = round(mean(`xRV.100`),3),
+    summarise(`RV/100` = round(mean(`RV/100`),3),
+              `xRV/100` = round(mean(`xRV/100`),3),
               `wOBA/Swing Decision` = round(`RV/100` / 100 * avg_pitchPA * wOBA_scale,4)) %>%
     mutate(`SDS Score` = (`xRV/100` - min(`xRV/100`, na.rm = T)) / (max(`xRV/100`, na.rm = T) - min(`xRV/100`, na.rm = T)),
            `SDS Score` = round((`SDS Score` * 100)),

@@ -1,4 +1,4 @@
-set_up_shiny <- function(full_preds21, full_preds22)
+set_up_shiny <- function(full_preds21, full_preds22, full_preds23)
 {
   ui <- fluidPage(
     titlePanel(h1("Ruslan's MLB Swing Decision & Pitch Quality Leaderboards", align = "center", 
@@ -6,7 +6,7 @@ set_up_shiny <- function(full_preds21, full_preds22)
     sidebarLayout(
       sidebarPanel(width = 3, 
                    selectInput("user_stat_type", "Statistic", c("Choose...", `Swing Decisions` = "user_sds", `Pitch Quality` = "user_pitch_quality")),
-                   selectInput("user_season", "Season", choices = c("Choose...",2021,2022)),
+                   selectInput("user_season", "Season", choices = c("Choose...",2021,2022,2023)),
                    conditionalPanel(
                      condition = "input.user_stat_type == 'user_sds'",
                      selectInput("user_player_type_sds", "Player Type", choices = c("Choose...", Batter = "user_sds_battters", Team = "user_sds_teams")),
@@ -49,6 +49,8 @@ set_up_shiny <- function(full_preds21, full_preds22)
             output$tbl <- renderDT({datatable(sds_individual_leaders(data = full_preds21, min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
           } else if (season == 2022) {
             output$tbl <- renderDT({datatable(sds_individual_leaders(data = full_preds22, min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
+          } else if (season == 2023) {
+            output$tbl <- renderDT({datatable(sds_individual_leaders(data = full_preds23, min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
           }
         } else if ((input$user_player_type_sds == "user_sds_teams") & (season != "Choose...")) {
           if (season == 2021)
@@ -56,6 +58,8 @@ set_up_shiny <- function(full_preds21, full_preds22)
             output$tbl <- renderDT({datatable(sds_team_leaders(data = full_preds21), rownames= FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
           } else if (season == 2022) {
             output$tbl <- renderDT({datatable(sds_team_leaders(data = full_preds22), rownames= FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
+          } else if (season == 2023) {
+            output$tbl <- renderDT({datatable(sds_team_leaders(data = full_preds23), rownames= FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
           }
         }
       } else if ((input$user_stat_type == "user_pitch_quality") & (input$user_stat_type != "Choose..."))
@@ -86,6 +90,17 @@ set_up_shiny <- function(full_preds21, full_preds22)
             } else if ((input$user_pitch_type_pitchers == "Offspeed") & !is.na(N)) {
               output$tbl <- renderDT({datatable(pitch_quality_leaders(data = full_preds22, pitch_type = "Offspeed", min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
             }
+          } else if (season == 2023) {
+            if ((input$user_pitch_type_pitchers == "All") & !is.na(N) & (input$user_pitch_type_pitchers != "Choose..."))
+            {
+              output$tbl <- renderDT({datatable(pitch_quality_leaders(data = full_preds23, pitch_type = "all", min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
+            } else if ((input$user_pitch_type_pitchers == "Fastball") & !is.na(N)) {
+              output$tbl <- renderDT({datatable(pitch_quality_leaders(data = full_preds23, pitch_type = "Fastball", min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
+            } else if ((input$user_pitch_type_pitchers == "Breaking Ball") & !is.na(N)) {
+              output$tbl <- renderDT({datatable(pitch_quality_leaders(data = full_preds23, pitch_type = "Breaking Ball", min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
+            } else if ((input$user_pitch_type_pitchers == "Offspeed") & !is.na(N)) {
+              output$tbl <- renderDT({datatable(pitch_quality_leaders(data = full_preds23, pitch_type = "Offspeed", min_pitches = N), rownames= FALSE, filter = "top", options = list(pageLength = 25, autoWidth = TRUE))})
+            }
           }
         } else if ((input$user_player_type_pitch_quality == "user_pitch_quality_teams") & (input$user_pitch_type_teams != "Choose...") & (season != "Choose...")) {
           if (season == 2021) {
@@ -109,6 +124,17 @@ set_up_shiny <- function(full_preds21, full_preds22)
               output$tbl <- renderDT({datatable(team_pitch_quality_leaders(data = full_preds22, pitch_type = "Breaking Ball"), rownames = FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
             } else if (input$user_pitch_type_teams == "Offspeed") {
               output$tbl <- renderDT({datatable(team_pitch_quality_leaders(data = full_preds22, pitch_type = "Offspeed"), rownames = FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
+            }
+          } else if (season == 2023) {
+            if ((input$user_pitch_type_teams == "All"))
+            {
+              output$tbl <- renderDT({datatable(team_pitch_quality_leaders(data = full_preds23, pitch_type = "all"), rownames = FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
+            } else if (input$user_pitch_type_teams == "Fastball") {
+              output$tbl <- renderDT({datatable(team_pitch_quality_leaders(data = full_preds23, pitch_type = "Fastball"), rownames = FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
+            } else if (input$user_pitch_type_teams == "Breaking Ball") {
+              output$tbl <- renderDT({datatable(team_pitch_quality_leaders(data = full_preds23, pitch_type = "Breaking Ball"), rownames = FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
+            } else if (input$user_pitch_type_teams == "Offspeed") {
+              output$tbl <- renderDT({datatable(team_pitch_quality_leaders(data = full_preds23, pitch_type = "Offspeed"), rownames = FALSE, filter = "top", options = list(pageLength = 30, autoWidth = TRUE))})
             }
           }
         }
