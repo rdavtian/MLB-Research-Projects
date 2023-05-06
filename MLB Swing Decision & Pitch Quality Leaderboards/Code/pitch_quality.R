@@ -7,13 +7,16 @@ library(psych)
 library(lubridate)
 library(zoo)
 library(caret)
+library(baseballr)
+current_season <- as.integer(substr(Sys.Date(), 1, 4))
 
 teamnames <- baseballr::teams_lu_table %>% 
   filter(sport.name == "Major League Baseball") %>% 
   select(teamName, abbreviation) %>% distinct() %>% 
-  mutate(teamName = case_when(teamName == "D-backs" ~ "Dbacks",
-                              TRUE ~ teamName)) %>% 
-  rename("Team" = "abbreviation")
+  mutate(teamName = case_when(teamName == "D-backs" ~ "Dbacks", TRUE ~ teamName)) %>% 
+  rename("Team" = "abbreviation") %>% 
+  add_row(teamName = 'Dbacks', Team = 'AZ') %>% 
+  arrange(teamName)
 
 player_name_player_id <- function(season)
 {
@@ -198,7 +201,7 @@ statcast_scraper <- function(start_date, end_date)
 clean_statcast_data_for_rv <- function(data)
 {
   data2 <- data %>% 
-    filter(pitch_name != "Intentional Ball", pitch_name != "Pitch Out") %>%
+    filter(pitch_name != "Intentional Ball", pitch_name != "Pitch Out", strikes < 3) %>%
     mutate(balls = case_when((balls > as.integer(3)) & (events != "walk") ~ as.integer(3),
                              TRUE ~ balls),
            plate_x = -plate_x, 
@@ -311,6 +314,8 @@ clean_statcast_data_for_rv <- function(data)
            game_month = lubridate::month(game_date, label = TRUE),
            pfx_x = pfx_x * -12,
            pfx_z = pfx_z * 12,
+           #home_team = case_when(home_team == "AZ" ~ "ARI", TRUE ~ home_team),
+           #away_team = case_when(away_team == "AZ" ~ "ARI", TRUE ~ home_team),
            estimated_ba_using_speedangle = as.numeric(estimated_ba_using_speedangle),
            estimated_woba_using_speedangle = as.numeric(estimated_woba_using_speedangle),
            hard_hit = case_when(launch_speed >= 95 ~ 1,
@@ -370,7 +375,7 @@ get_run_expectancy_values <- function(season)
 {
   if (season == as.integer(substr(Sys.Date(), 1, 4)))
   {
-    mlbraw <- statcast_scraper(paste0(season, "-04-07"), Sys.Date())
+    mlbraw <- statcast_scraper(paste0(season, "-04-07"), paste0(season, "-10-05"))
     
   } else if (season != as.integer(substr(Sys.Date(), 1, 4))) {
     mlbraw <- statcast_scraper(paste0(season, "-04-01"), paste0(season, "-10-03"))
@@ -497,15 +502,15 @@ clean_statcast_data_for_pitch_mod <- function(clean_data)
                                new_count == "Strike Out" ~ "Strike Out",
                                TRUE ~ events3)) %>% 
     filter(!is.na(events3)) %>% 
-    inner_join(teamnames, by = c("home_team" = "Team")) %>% rename("home_team_name" = "teamName") %>% 
-    inner_join(teamnames, by = c("away_team" = "Team")) %>% rename("away_team_name" = "teamName") %>%
+    left_join(teamnames, by = c("home_team" = "Team")) %>% rename("home_team_name" = "teamName") %>% 
+    left_join(teamnames, by = c("away_team" = "Team")) %>% rename("away_team_name" = "teamName") %>%
     mutate(pitcher_team = case_when(inning_topbot == "Top" ~ home_team_name, 
                                     TRUE ~ away_team_name),
            batter_team = case_when(inning_topbot == "Bot" ~ home_team_name,
                                    TRUE ~ away_team_name))
   
   clean_data2 <- clean_data2 %>%
-    group_by(pitcher, game_date) %>% 
+    group_by(pitcher) %>% 
     mutate(avg_fb_velo = mean(release_speed[pitch_name3 == "Fastball"], na.rm = T),
            avg_fb_pfx_x = mean(pfx_x[pitch_name3 == "Fastball"], na.rm = T),
            avg_fb_pfx_z = mean(pfx_z[pitch_name3 == "Fastball"], na.rm = T)) %>% 
@@ -570,7 +575,11 @@ run_model <- function(data, x_vars, y_var, model_type, tuneLength, plot = TRUE)
       model_type2 <- "XGBoost"
     }
     imp2 <- varImp(model)
-    imp_plot <- barchart(sort(rowMeans(imp2$importance), decreasing = F), main = paste0(model_type2, " Variable Importance Chart"), xlab = "Average Level of Importance", ylab = "Variables", fill="cyan2")
+    imp_plot <- barchart(sort(rowMeans(imp2$importance), decreasing = F), 
+                         main = list(label = paste0(model_type2, " Variable Importance Chart"), cex = 1.65), 
+                         xlab=list(label = "Average Level of Importance", cex=1.5),
+                         ylab=list(label = "Variables", cex=1.5), fill="cyan2", 
+                         scales=list(tck=c(1,0), x=list(cex=1.2), y=list(cex=1.2)))
   }
   else if ((model_type == 'gbm') & (plot == TRUE))
   {
@@ -789,7 +798,7 @@ sds_individual_leaders <- function(data, min_pitches)
   if (unique(data$game_year) == 2021)
   {
     avg_pitchPA <- 3.908334
-  } else if (unique(data$game_year) == 2022) {
+  } else if (unique(data$game_year) %in% c(2022, 2023)) {
     avg_pitchPA <- 3.895207
   }
   #avg_pitchPA <- data %>% 
@@ -828,8 +837,8 @@ sds_team_leaders <- function(data)
   if (unique(data$game_year) == 2021)
   {
     avg_pitchPA <- 3.908334
-  } else if (unique(data$game_year) == 2022) {
-    avg_pitchPA <- 3.895207
+  } else if (unique(data$game_year) %in% c(2022, 2023)) {
+    avg_pitchPA <- 3.891194
   }
   #avg_pitchPA <- data %>% 
   #arrange(pitcher, game_date, home_team, away_team, inning, desc(inning_topbot), 
@@ -857,25 +866,26 @@ sds_team_leaders <- function(data)
   return(data2)
 } 
 #########################################################################################
-sc <- statcast_scraper("2022-04-07", Sys.Date())
-sc_clean <- clean_statcast_data_for_rv(sc)
-run_expectancy_values <- get_run_expectancy_values(2022)
+sc <- statcast_scraper("2023-03-30", Sys.Date())
+sc_clean <- clean_statcast_data_for_rv(sc); rm(sc)
+#run_expectancy_values <- get_run_expectancy_values(current_season)
+run_expectancy_values <- read.csv("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Advanced Scouting Reports/run_expectancy_values_2022.csv")
 sc_clean2 <- find_run_value(sc_clean, run_expectancy_values)
-df <- clean_statcast_data_for_pitch_mod(sc_clean2)
+df <- clean_statcast_data_for_pitch_mod(sc_clean2); #rm(sc_clean2)
 lw <- df %>% 
   filter(!is.na(events3)) %>% 
   group_by(events3) %>% 
   summarize(lin_weight = mean(RV, na.rm = T)) %>% 
-  mutate(wOBA_weight = (lin_weight + abs(lin_weight[events3 == "Out"])) * fg_guts() %>% filter(season == 2022) %>% select(woba_scale) %>% pull())
+  mutate(wOBA_weight = (lin_weight + abs(lin_weight[events3 == "Out"])) * fg_guts() %>% filter(season == unique(df$game_year)) %>% select(woba_scale) %>% pull())
 df <- df %>% inner_join(lw, by = "events3")
 
 fastball <- df %>% filter(pitch_name3 == "Fastball")
 offspeed <- df %>% filter(pitch_name3 == "Offspeed")
 breaking <- df %>% filter(pitch_name3 == "Breaking Ball")
-fastball2 <- fastball %>% filter(game_date < "2022-07-01")
-breaking2 <- breaking %>% filter(game_date < "2022-07-01")
-offspeed2 <- offspeed %>% filter(game_date < "2022-07-01")
-ids <- player_name_player_id(2022)
+fastball2 <- fastball %>% filter(game_date < "2023-07-01")
+breaking2 <- breaking %>% filter(game_date < "2023-07-01")
+offspeed2 <- offspeed %>% filter(game_date < "2023-07-01")
+ids <- player_name_player_id(current_season)
 
 x_vars <- c("release_speed","pfx_x","pfx_z","release_pos_x","release_pos_z", 
             "release_extension","release_spin_rate","spin_axis","plate_x","plate_z",
@@ -885,9 +895,12 @@ x_vars_fb <- c("release_speed","pfx_x","pfx_z","release_pos_x","release_pos_z",
 y_var <- "lin_weight"
 ##########################################################################################
 # Fastballs
+#fb_model <- readRDS("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/Code/fb_model_21.rds")
+#saveRDS(fb[[1]], "C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/Code/fb_model_21.rds")
 fb <- run_model(fastball2, x_vars_fb, y_var, "ranger", 2, TRUE)
 fb[[3]]
 fastball$xRV <- predict(fb[[1]], fastball)
+#fastball$xRV <- predict(fb_model, fastball)
 
 # Plot xRV kernel density estimate of test set predictions
 iqr <- quantile(fb[[2]]$y_var_pred, prob = 0.75, na.rm = T) - quantile(fb[[2]]$y_var_pred, prob = 0.25, na.rm = T)
@@ -926,9 +939,13 @@ ggplot(data = fb[[2]], aes(x = !! y_var2)) +
 
 ###########################################################################################
 # Breaking Balls
+#br_model <- readRDS("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/Code/br_model_21.rds")
+#saveRDS(br[[1]], "C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/Code/br_model_21.rds")
 br <- run_model(breaking2, x_vars, y_var, "ranger", 2, TRUE)
 br[[3]]
 breaking$xRV <- predict(br[[1]], breaking)
+#breaking$xRV <- predict(br_model, breaking)
+
 
 # Plot xRV kernel density estimate of test set predictions
 iqr <- quantile(br[[2]]$y_var_pred, prob = 0.75, na.rm = T) - quantile(br[[2]]$y_var_pred, prob = 0.25, na.rm = T)
@@ -966,9 +983,13 @@ ggplot(data = br[[2]], aes(x = !! y_var2)) +
   scale_x_continuous(limits = c(-1, 1), breaks = seq(-1, 1, by = 0.5)) 
 ###########################################################################################
 # Offspeed
+#off_model <- readRDS("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/Code/off_model_21.rds")
+#saveRDS(off[[1]], "C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/Code/off_model_21.rds")
 off <- run_model(offspeed2, x_vars, y_var, "ranger", 2, TRUE)
 off[[3]]
 offspeed$xRV <- predict(off[[1]], offspeed)
+#offspeed$xRV <- predict(off_model, offspeed)
+
 
 # Plot xRV kernel density estimate of test set predictions
 iqr <- quantile(off[[2]]$y_var_pred, prob = 0.75, na.rm = T) - quantile(off[[2]]$y_var_pred, prob = 0.25, na.rm = T)
@@ -1007,22 +1028,23 @@ ggplot(data = off[[2]], aes(x = !! y_var2)) +
 ####################################################################################
 full_preds <- rbind(fastball, breaking, offspeed) %>% inner_join(ids, by = c("pitcher" = "person_id"))
 full_preds <- get_sds_weights(full_preds)
-write.csv(full_preds, "C:\\Users\\rusla\\OneDrive\\MLBAnalyticsJobs\\MLB Swing Decision & Pitch Quality Leaderboards\\R Shiny\\pitch_by_pitch22.csv", row.names = FALSE)
+write.csv(full_preds, "C:\\Users\\rusla\\OneDrive\\MLBAnalyticsJobs\\MLB Swing Decision & Pitch Quality Leaderboards\\R Shiny\\pitch_by_pitch23.csv", row.names = FALSE)
+full_preds <- data.table::fread("C:/Users/rusla/OneDrive/MLBAnalyticsJobs/MLB Swing Decision & Pitch Quality Leaderboards/R Shiny/pitch_by_pitch23.csv")
 
-
-round(sqrt(mean((full_preds[,y_var] %>% pull() - full_preds$xRV)^2)),3)
+round(sqrt(mean((full_preds[,..y_var] %>% pull() - full_preds$xRV)^2)),3)
 round(sd(full_preds$lin_weight),3)
 
 team_pitch_quality_leaders(full_preds, "all") %>% View()
-pitch_quality_leaders(full_preds, "Fastball", 300) %>% View() filter(Team == "Giants") %>% View()
-pitch_quality_leaders(full_preds, "Breaking Ball", 200) %>% filter(Team == "Giants") %>% View()
-pitch_quality_leaders(full_preds, "Offspeed", 300) %>% filter(Team == "Giants") %>% View()
+pitch_quality_leaders(full_preds, "Fastball", 300) %>% View() 
+pitch_quality_leaders(full_preds, "Breaking Ball", 200) %>% View()
+pitch_quality_leaders(full_preds, "Offspeed", 300) %>% View()
 pitch_quality_leaders(full_preds, "all", 200) %>% View()
+
 sds_individual_leaders(full_preds, 500) %>% View()
 sds_team_leaders(full_preds) %>% View()
 
 
-sort(unique(full_preds22$person_full_name))
-test <- pitch_quality_individual_pitches(full_preds22, "Sam Long")
+sort(unique(full_preds$person_full_name))
+test <- pitch_quality_individual_pitches(full_preds, "Camilo Doval")
 test2 <- get_video_links(test, length(unique(test$game_pk)))
 ##############################################################################################
